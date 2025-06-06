@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import KeywordTagGroup from '@/components/matching/individual/KeywordTagGroup';
 import UserProfileCard from '@/components/mypage/UserProfileCard';
-import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 
 const matchedUser = {
   code: 'TUNING_SUCCESS',
@@ -41,6 +41,8 @@ export default function MyPage() {
     setIsLogoutModalOpen(false);
   };
 
+  const openModal = useConfirmModalStore((state) => state.openModal);
+
   return (
     <>
       <Header title="마이페이지" showBackButton={false} showNotificationButton={true} />
@@ -63,27 +65,28 @@ export default function MyPage() {
 
         <div className="mt-10 flex justify-center px-8">
           <button
-            onClick={() => setIsLogoutModalOpen(true)}
+            onClick={() =>
+              openModal({
+                title: '정말 로그아웃 하시겠어요?',
+                description: (
+                  <>
+                    로그아웃 버튼 클릭 시, 계정은 유지되며
+                    <br /> 언제든 다시 로그인 할 수 있어요.
+                  </>
+                ),
+                confirmText: '로그아웃하기',
+                cancelText: '취소',
+                variant: 'quit',
+                onConfirm: handleLogout,
+                onCancel: () => {},
+              })
+            }
             className="border-b-1 border-[var(--gray-400)] text-xs font-semibold text-[var(--gray-400)]"
           >
             로그아웃
           </button>
         </div>
       </main>
-      <ConfirmModal
-        isOpen={isLogoutModalOpen}
-        title="정말 로그아웃 하시겠어요?"
-        description={
-          <>
-            로그아웃 버튼 클릭 시, 계정은 유지되며
-            <br /> 언제든 다시 로그인 할 수 있어요.
-          </>
-        }
-        confirmText="로그아웃하기"
-        onConfirm={handleLogout}
-        onCancel={() => setIsLogoutModalOpen(false)}
-        variant="quit"
-      />
     </>
   );
 }

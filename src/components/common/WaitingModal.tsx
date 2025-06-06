@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { FadeLoader } from 'react-spinners';
 
 export default function WaitingModal() {
-  const [isOpen, setIsOpen] = useState(true);
+  const { isOpen, partnerNickname } = useWaitingModalStore();
 
   return isOpen ? (
     <div className="fixed inset-0 z-51 flex items-center justify-center bg-black/40">
       <div className="relative flex w-full max-w-xs flex-col items-center justify-center space-y-4 rounded-2xl bg-white p-6 text-center">
         <FadeLoader color="#84a7ff" height={10} width={3} margin={2} />
         <h2 className="text-base leading-relaxed font-semibold">
-          `행복한 튜브`님의 응답을
+          {partnerNickname}님의 응답을
           <br />
           기다리고 있습니다
         </h2>

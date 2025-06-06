@@ -22,6 +22,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
+    "event-source-polyfill": "^1.0.31",
     "framer-motion": "^12.9.7",
     "lucide-react": "^0.503.0",
     "react": "19.0.0",
