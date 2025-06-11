@@ -6,6 +6,8 @@ on:
     branches:
       - main
       - develop
+    paths-ignore:
+      - ".github/workflows/cicd-frontend.yml"
 
   workflow_dispatch:
     inputs:
@@ -116,7 +118,7 @@ jobs:
             .
           docker tag $ECR_REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }} $ECR_REGISTRY/$REPOSITORY:${{ env.ENV_TAG }}
 
-          echo "📤 Docker 이미지 푸시 중..."`
+          echo "📤 Docker 이미지 푸시 중..."
           docker push $ECR_REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
           docker push $ECR_REGISTRY/$REPOSITORY:${{ env.ENV_TAG }}
 
