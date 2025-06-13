@@ -97,11 +97,14 @@ export default function ChatsIndividualPage() {
   return (
     <>
       <main className="relative flex h-full w-full flex-col overflow-x-hidden px-6 pb-18">
-        <ChatHeader
-          title={partner?.partnerNickname ?? ''}
-          onLeave={() => console.log('나가기')}
-          onToggleDetail={() => console.log('상세 보기 토글')}
-        />
+        {typeof partner?.partnerId === 'number' && (
+          <ChatHeader
+            title={partner?.partnerNickname ?? ''}
+            partnerId={partner?.partnerId}
+            onLeave={() => console.log('나가기')}
+            onToggleDetail={() => console.log('상세 보기 토글')}
+          />
+        )}
         <div className="flex flex-col gap-6">
           {messages.map((msg, index) => {
             const currentDate = formatKoreanDate(msg.messageSendAt);
