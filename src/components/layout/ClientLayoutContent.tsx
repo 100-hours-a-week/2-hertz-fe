@@ -11,6 +11,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import WaitingModal from '../common/WaitingModal';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
+import { getChannelRoomDetail } from '@/lib/api/chat';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -73,7 +74,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
             handleAccept(channelRoomId, partnerNickname);
             closeConfirmModal();
             closeWaitingModal();
-            // lastOpenedRoomIdRef.current = null;
             lastOpenedPartnerRef.current = null;
           },
           onCancel: () => {
@@ -92,12 +92,13 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           partnerProfileImage: string;
           partnerNickname: string;
         };
-        if (currentWaitingChannelIdRef.current !== channelRoomId) return;
+        if (!channelRoomId) return;
 
         currentWaitingChannelIdRef.current = null;
         closeWaitingModal();
+        useWaitingModalStore.getState().reset();
 
-        toast(`${partnerNickname}님과 매칭을 성공했어요!`, { icon: '🥳' });
+        toast(`${partnerNickname}님과 매칭을 성공했어요!`, { icon: '🥳', duration: 4000 });
       },
       'matching-rejection': (data: unknown) => {
         const { channelRoomId, partnerNickname } = data as {
@@ -114,7 +115,57 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           closeConfirmModal();
         }
 
-        toast(`${partnerNickname}님과 매칭을 실패했어요`, { icon: '🥺' });
+        toast(`${partnerNickname}님과 매칭을 실패했어요`, { icon: '🥺', duration: 4000 });
+      },
+      'matching-confirmed': async (data: unknown) => {
+        const { channelRoomId, partnerNickname } = data as {
+          channelRoomId: number;
+          partnerId: number;
+          partnerProfileImage: string;
+          partnerNickname: string;
+        };
+
+        try {
+          const res = await getChannelRoomDetail(channelRoomId);
+          const relationType = res.data.relationType;
+
+          useConfirmModalStore.getState().openModal({
+            title: (
+              <>
+                {partnerNickname}님과의 매칭에
+                <br />
+                동의하시겠습니까?
+              </>
+            ),
+            confirmText: '네',
+            cancelText: '아니요',
+            imageSrc: '/images/friends.png',
+            variant: 'confirm',
+            onConfirm: async () => {
+              if (relationType === 'UNMATCHED') {
+                toast(`${partnerNickname}님과 매칭을 실패했어요`, {
+                  icon: '🥺',
+                  duration: 4000,
+                });
+                closeConfirmModal();
+                closeWaitingModal();
+              } else {
+                handleAccept(channelRoomId, partnerNickname);
+                closeConfirmModal();
+                closeWaitingModal();
+              }
+            },
+            onCancel: () => {
+              handleReject(channelRoomId);
+              closeConfirmModal();
+              closeWaitingModal();
+            },
+          });
+        } catch (e) {
+          toast.error('매칭 정보를 확인하는 데 실패했습니다.');
+          closeConfirmModal();
+          closeWaitingModal();
+        }
       },
     }),
 
@@ -127,7 +178,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
       switch (res.code) {
         case 'MATCH_SUCCESS':
-          toast('매칭이 성사되었습니다!', { icon: '🥳' });
+          toast('매칭이 성사되었습니다!', { icon: '🥳', duration: 4000 });
           closeWaitingModal();
           closeConfirmModal();
 
@@ -135,7 +186,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         case 'MATCH_PENDING':
           toast('상대방의 응답을 기다리는 중입니다');
           closeConfirmModal();
-          openWaitingModal(partnerNickname);
+          openWaitingModal(partnerNickname, channelRoomId);
           currentWaitingChannelIdRef.current = channelRoomId;
           break;
         case 'MATCH_FAILED':

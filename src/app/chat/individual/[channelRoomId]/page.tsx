@@ -17,6 +17,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -25,6 +26,12 @@ export default function ChatsIndividualPage() {
 
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
+
+  const {
+    shouldShowModal,
+    channelRoomId: waitingModalChannelId,
+    openModal,
+  } = useWaitingModalStore();
 
   const { data, isLoading, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
@@ -58,6 +65,17 @@ export default function ChatsIndividualPage() {
       fetchNextPage();
     }
   }, [inView, hasNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    if (
+      shouldShowModal &&
+      partner?.partnerNickname &&
+      waitingModalChannelId === parsedChannelRoomId &&
+      partner?.relationType !== 'MATCHING'
+    ) {
+      openModal(partner.partnerNickname, parsedChannelRoomId);
+    }
+  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
 
   // polling
   useEffect(() => {
@@ -97,11 +115,13 @@ export default function ChatsIndividualPage() {
   return (
     <>
       <main className="relative flex h-full w-full flex-col overflow-x-hidden px-6 pb-18">
-        <ChatHeader
-          title={partner?.partnerNickname ?? ''}
-          onLeave={() => console.log('나가기')}
-          onToggleDetail={() => console.log('상세 보기 토글')}
-        />
+        {typeof partner?.partnerId === 'number' && (
+          <ChatHeader
+            title={partner?.partnerNickname ?? ''}
+            partnerId={partner?.partnerId}
+            onLeave={() => console.log('나가기')}
+          />
+        )}
         <div className="flex flex-col gap-6">
           {messages.map((msg, index) => {
             const currentDate = formatKoreanDate(msg.messageSendAt);

@@ -35,7 +35,7 @@ export default function ProfileDetailPage() {
 
   return (
     <>
-      <Header title="프로필 상세보기" showBackButton={false} showNotificationButton={true} />
+      <Header title="프로필 상세보기" showBackButton={true} showNotificationButton={true} />
       <main className="pb-[calc(3.5rem + env(safe-area-inset-bottom))] flex-1 flex-col overflow-y-hidden px-4 pt-4">
         <div className="flex w-full flex-grow flex-col justify-between rounded-3xl px-5 py-4">
           <div className="space-y-4">

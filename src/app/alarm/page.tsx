@@ -134,7 +134,7 @@ export default function AlarmPage() {
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="text-sm leading-6 whitespace-pre-wrap text-[var(--gray-300)]">
+                <AccordionContent className="text-wrap-keep text-sm leading-6 text-[var(--gray-300)]">
                   {alarm.content}
                 </AccordionContent>
               </AccordionItem>

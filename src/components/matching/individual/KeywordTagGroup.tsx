@@ -27,6 +27,7 @@ export default function KeywordTagGroup({
   const pathname = usePathname();
   const isProfilePage = pathname.startsWith('/mypage') || pathname.startsWith('/profile');
   const isMyPage = pathname.startsWith('/mypage');
+  const isMatchingPage = pathname.startsWith('/matching');
   const shouldBlurKeyword = relationType !== 'MATCHING';
 
   // 사용자 키워드를 렌더링용 문자열 배열로 변환 ('preferredPeople': 'RELIABLE' → 'PREFERRED_PEOPLE_RELIABLE')
@@ -95,7 +96,7 @@ export default function KeywordTagGroup({
         </div>
       ) : (
         <p className="items-center justify-center text-sm font-light text-[var(--gray-300)]">
-          일반 관심사가 존재하지 않습니다.
+          {!isMatchingPage ? '일반 관심사가 존재하지 않습니다.' : ''}
         </p>
       )}
     </main>

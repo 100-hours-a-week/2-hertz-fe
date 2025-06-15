@@ -1,6 +1,5 @@
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import Image from 'next/image';
-import { IoClose } from 'react-icons/io5';
 
 export function ConfirmModal() {
   const {
@@ -33,9 +32,6 @@ export function ConfirmModal() {
   return isOpen ? (
     <div className="fixed inset-0 z-51 flex items-center justify-center bg-black/40">
       <div className="relative w-full max-w-xs space-y-4 rounded-2xl bg-white p-6 text-center">
-        <button onClick={handleCancel} className="absolute top-4 right-4">
-          <IoClose size={20} />
-        </button>
         {imageSrc && (
           <div className="flex w-full justify-center">
             <Image src={imageSrc} alt="friends Image" width={40} height={40} />
