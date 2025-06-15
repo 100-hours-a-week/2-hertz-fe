@@ -13,6 +13,7 @@ import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { getChannelRoomDetail } from '@/lib/api/chat';
 import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
+import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -173,6 +174,12 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       },
       'nav-no-any-new-message': () => {
         useNavNewMessageStore.getState().setHasNewMessage(false);
+      },
+      'new-alarm': () => {
+        useNewAlarmStore.getState().setHasNewAlarm(true);
+      },
+      'no-any-new-alarm': () => {
+        useNewAlarmStore.getState().setHasNewAlarm(false);
       },
     }),
 
