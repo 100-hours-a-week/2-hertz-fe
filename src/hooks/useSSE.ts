@@ -36,6 +36,12 @@ export const useSSE = ({ url, handlers }: { url: string; handlers: SSEEventHandl
       Object.entries(handlersRef.current).forEach(([event, callback]) => {
         const listener = (e: MessageEvent) => {
           try {
+            if (event === 'nav-new-message' || event === 'nav-no-any-new-message') {
+              callback(null);
+              return;
+            }
+
+            if (!e.data) return;
             const parsed = JSON.parse(e.data);
             callback(parsed);
           } catch (err) {
