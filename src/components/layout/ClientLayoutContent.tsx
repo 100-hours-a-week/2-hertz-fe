@@ -73,7 +73,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
             handleAccept(channelRoomId, partnerNickname);
             closeConfirmModal();
             closeWaitingModal();
-            // lastOpenedRoomIdRef.current = null;
             lastOpenedPartnerRef.current = null;
           },
           onCancel: () => {

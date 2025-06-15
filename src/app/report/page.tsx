@@ -54,11 +54,11 @@ export default function ReportPage() {
         <ReportLoading />
       ) : (
         reports.map((report) => (
-          <>
+          <div key={report.reportId}>
             <p className="px-2 font-bold">
               {reports.length > 0 && dayjs(report.createdDate).format('YYYY년 MM월 DD일')}
             </p>
-            <div key={report.reportId} className="mt-4 mb-8 rounded-2xl border p-4">
+            <div className="mt-4 mb-8 rounded-2xl border p-4">
               <p className="mb-4 text-sm font-bold">
                 <mark className="bg-[var(--light-blue)]">{report.title}</mark>
               </p>
@@ -99,7 +99,7 @@ export default function ReportPage() {
                 myReactions={report.myReactions}
               />
             </div>
-          </>
+          </div>
         ))
       )}
     </div>
