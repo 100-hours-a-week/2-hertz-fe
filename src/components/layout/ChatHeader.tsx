@@ -8,10 +8,9 @@ interface ChatHeaderProps {
   title: string;
   partnerId: number;
   onLeave: () => void;
-  onToggleDetail?: () => void;
 }
 
-export default function ChatHeader({ title, partnerId, onLeave, onToggleDetail }: ChatHeaderProps) {
+export default function ChatHeader({ title, partnerId, onLeave }: ChatHeaderProps) {
   const router = useRouter();
 
   const handleNicknameClick = () => {
@@ -25,13 +24,11 @@ export default function ChatHeader({ title, partnerId, onLeave, onToggleDetail }
       </button>
 
       <div
-        onClick={onToggleDetail}
+        onClick={handleNicknameClick}
         className="flex max-w-[220px] flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden text-lg font-bold whitespace-nowrap text-black"
       >
-        <span onClick={handleNicknameClick} className="overflow-hidden text-ellipsis">
-          {title}
-        </span>
-        {/* <FaAngleDown className="ml-1 flex-shrink-0 text-[clamp(1rem,2vw,0.8rem)]" /> */}
+        <span className="overflow-hidden text-ellipsis">{title}</span>
+        <FaAngleDown className="ml-1 flex-shrink-0 text-[clamp(1rem,2vw,0.8rem)]" />
       </div>
 
       <button onClick={onLeave} className="flex w-8 items-center justify-center p-1">

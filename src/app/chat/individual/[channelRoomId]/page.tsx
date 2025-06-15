@@ -102,7 +102,6 @@ export default function ChatsIndividualPage() {
             title={partner?.partnerNickname ?? ''}
             partnerId={partner?.partnerId}
             onLeave={() => console.log('나가기')}
-            onToggleDetail={() => console.log('상세 보기 토글')}
           />
         )}
         <div className="flex flex-col gap-6">
