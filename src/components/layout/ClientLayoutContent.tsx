@@ -12,6 +12,7 @@ import WaitingModal from '../common/WaitingModal';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { getChannelRoomDetail } from '@/lib/api/chat';
+import { useNavBadgeStore } from '@/stores/chat/useNavBadgeStore';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -166,6 +167,12 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           closeConfirmModal();
           closeWaitingModal();
         }
+      },
+      'nav-new-message': () => {
+        useNavBadgeStore.getState().setHasNewMessage(true);
+      },
+      'nav-no-any-new-message': () => {
+        useNavBadgeStore.getState().setHasNewMessage(false);
       },
     }),
 
