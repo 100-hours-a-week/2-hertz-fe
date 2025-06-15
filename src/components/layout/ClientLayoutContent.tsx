@@ -91,12 +91,13 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           partnerProfileImage: string;
           partnerNickname: string;
         };
-        if (currentWaitingChannelIdRef.current !== channelRoomId) return;
+        if (!channelRoomId) return;
 
         currentWaitingChannelIdRef.current = null;
         closeWaitingModal();
+        useWaitingModalStore.getState().reset();
 
-        toast(`${partnerNickname}님과 매칭을 성공했어요!`, { icon: '🥳' });
+        toast(`${partnerNickname}님과 매칭을 성공했어요!`, { icon: '🥳', duration: 4000 });
       },
       'matching-rejection': (data: unknown) => {
         const { channelRoomId, partnerNickname } = data as {
@@ -113,7 +114,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           closeConfirmModal();
         }
 
-        toast(`${partnerNickname}님과 매칭을 실패했어요`, { icon: '🥺' });
+        toast(`${partnerNickname}님과 매칭을 실패했어요`, { icon: '🥺', duration: 4000 });
       },
     }),
 
@@ -126,7 +127,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
       switch (res.code) {
         case 'MATCH_SUCCESS':
-          toast('매칭이 성사되었습니다!', { icon: '🥳' });
+          toast('매칭이 성사되었습니다!', { icon: '🥳', duration: 4000 });
           closeWaitingModal();
           closeConfirmModal();
 
@@ -134,7 +135,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         case 'MATCH_PENDING':
           toast('상대방의 응답을 기다리는 중입니다');
           closeConfirmModal();
-          openWaitingModal(partnerNickname);
+          openWaitingModal(partnerNickname, channelRoomId);
           currentWaitingChannelIdRef.current = channelRoomId;
           break;
         case 'MATCH_FAILED':
