@@ -17,6 +17,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -25,6 +26,12 @@ export default function ChatsIndividualPage() {
 
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
+
+  const {
+    shouldShowModal,
+    channelRoomId: waitingModalChannelId,
+    openModal,
+  } = useWaitingModalStore();
 
   const { data, isLoading, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
@@ -58,6 +65,17 @@ export default function ChatsIndividualPage() {
       fetchNextPage();
     }
   }, [inView, hasNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    if (
+      shouldShowModal &&
+      partner?.partnerNickname &&
+      waitingModalChannelId === parsedChannelRoomId &&
+      partner?.relationType !== 'MATCHING'
+    ) {
+      openModal(partner.partnerNickname, parsedChannelRoomId);
+    }
+  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
 
   // polling
   useEffect(() => {

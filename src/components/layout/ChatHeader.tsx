@@ -1,5 +1,6 @@
 'use client';
 
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useRouter } from 'next/navigation';
 import { FaAngleLeft, FaAngleDown } from 'react-icons/fa6';
 import { LuLogOut } from 'react-icons/lu';
@@ -12,15 +13,20 @@ interface ChatHeaderProps {
 
 export default function ChatHeader({ title, partnerId, onLeave }: ChatHeaderProps) {
   const router = useRouter();
+  const closeModal = useWaitingModalStore((state) => state.closeModal);
 
   const handleNicknameClick = () => {
     router.push(`/profile/${partnerId}`);
   };
 
+  const handleBack = () => {
+    closeModal();
+    router.back();
+  };
   return (
     <header className="fixed top-0 left-1/2 z-50 flex h-14 w-full max-w-[430px] -translate-x-1/2 items-center justify-between bg-white px-4">
-      <button onClick={() => router.back()} className="flex w-6 items-center justify-center p-1">
-        <FaAngleLeft className="text-[clamp(1rem,2vw,1.2rem)]" />
+      <button onClick={handleBack} className="flex w-6 items-center justify-center p-1">
+        <FaAngleLeft className="z-[100] text-[clamp(1rem,2vw,1.2rem)]" />
       </button>
 
       <div
