@@ -11,6 +11,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import WaitingModal from '../common/WaitingModal';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
+import { getChannelRoomDetail } from '@/lib/api/chat';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -115,6 +116,56 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         }
 
         toast(`${partnerNickname}님과 매칭을 실패했어요`, { icon: '🥺', duration: 4000 });
+      },
+      'matching-confirmed': async (data: unknown) => {
+        const { channelRoomId, partnerNickname } = data as {
+          channelRoomId: number;
+          partnerId: number;
+          partnerProfileImage: string;
+          partnerNickname: string;
+        };
+
+        try {
+          const res = await getChannelRoomDetail(channelRoomId);
+          const relationType = res.data.relationType;
+
+          useConfirmModalStore.getState().openModal({
+            title: (
+              <>
+                {partnerNickname}님과의 매칭에
+                <br />
+                동의하시겠습니까?
+              </>
+            ),
+            confirmText: '네',
+            cancelText: '아니요',
+            imageSrc: '/images/friends.png',
+            variant: 'confirm',
+            onConfirm: async () => {
+              if (relationType === 'UNMATCHED') {
+                toast(`${partnerNickname}님과 매칭을 실패했어요`, {
+                  icon: '🥺',
+                  duration: 4000,
+                });
+                closeConfirmModal();
+                closeWaitingModal();
+              } else {
+                handleAccept(channelRoomId, partnerNickname);
+                closeConfirmModal();
+                closeWaitingModal();
+              }
+            },
+            onCancel: () => {
+              handleReject(channelRoomId);
+              closeConfirmModal();
+              closeWaitingModal();
+            },
+          });
+        } catch (e) {
+          toast.error('매칭 정보를 확인하는 데 실패했습니다.');
+          closeConfirmModal();
+          closeWaitingModal();
+        }
       },
     }),
 
