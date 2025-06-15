@@ -12,7 +12,7 @@ import WaitingModal from '../common/WaitingModal';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { getChannelRoomDetail } from '@/lib/api/chat';
-import { useNavBadgeStore } from '@/stores/chat/useNavBadgeStore';
+import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -169,10 +169,10 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         }
       },
       'nav-new-message': () => {
-        useNavBadgeStore.getState().setHasNewMessage(true);
+        useNavNewMessageStore.getState().setHasNewMessage(true);
       },
       'nav-no-any-new-message': () => {
-        useNavBadgeStore.getState().setHasNewMessage(false);
+        useNavNewMessageStore.getState().setHasNewMessage(false);
       },
     }),
 
