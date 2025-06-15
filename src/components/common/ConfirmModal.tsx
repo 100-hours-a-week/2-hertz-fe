@@ -38,7 +38,9 @@ export function ConfirmModal() {
           </div>
         )}
         <h2 className="text-md px-4 font-bold">{title}</h2>
-        {description && <p className="text-sm text-[var(--gray-400)]">{description}</p>}
+        {description && (
+          <p className="text-sm whitespace-pre-line text-[var(--gray-400)]">{description}</p>
+        )}
 
         <div className={`mt-5 flex justify-center gap-6 px-4 pt-2`}>
           <button

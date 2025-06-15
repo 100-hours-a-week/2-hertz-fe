@@ -5,6 +5,7 @@ import { HiOutlineHome } from 'react-icons/hi';
 import { TbReportSearch } from 'react-icons/tb';
 import { PiChatCircleDotsBold } from 'react-icons/pi';
 import { FaRegUserCircle } from 'react-icons/fa';
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 
@@ -18,7 +19,7 @@ const navItems = [
 export default function BottomNavigationBar() {
   const pathname = usePathname();
   const router = useRouter();
-
+  const closeWaitingModal = useWaitingModalStore.getState().closeModal();
   const shouldHide = hiddenRoutes.some((route) => pathname.startsWith(route));
   if (shouldHide) return null;
 
@@ -30,7 +31,10 @@ export default function BottomNavigationBar() {
         return (
           <button
             key={path}
-            onClick={() => router.push(path)}
+            onClick={() => {
+              closeWaitingModal;
+              router.push(path);
+            }}
             className={`flex flex-col items-center gap-1 text-xs transition-colors duration-200 ${
               isActive ? 'font-semibold text-[var(--gray-400)]' : 'text-[var(--gray-300)]'
             }`}
