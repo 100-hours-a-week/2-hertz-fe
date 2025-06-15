@@ -6,11 +6,12 @@ import ChatHeader from '@/components/layout/ChatHeader';
 import ChatSignalInputBox from '@/components/chat/common/ChatSignalInputBox';
 import {
   ChannelRoomDetailResponse,
+  deleteChannelRoom,
   getChannelRoomDetail,
   postChannelMessage,
 } from '@/lib/api/chat';
 import { useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ import { useEffect, useRef } from 'react';
 import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
+import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -27,11 +29,37 @@ export default function ChatsIndividualPage() {
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
 
+  const router = useRouter();
+
   const {
     shouldShowModal,
     channelRoomId: waitingModalChannelId,
     openModal,
   } = useWaitingModalStore();
+
+  const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
+    useConfirmModalStore.getState().openModal({
+      title: '정말 채팅방을 나가시겠어요?',
+      description: '채널을 나가면 이전 채팅 기록을\n 다시 확인할 수 없어요.',
+      confirmText: '나가기',
+      cancelText: '취소',
+      variant: 'confirm',
+      onConfirm: async () => {
+        try {
+          await deleteChannelRoom(channelRoomId);
+          toast.success(`${partnerNickname}님과의 채팅방에서 나갔습니다.`);
+          router.push('/chat');
+        } catch (e) {
+          toast.error('채팅방 나가기 중 문제가 발생했어요.');
+        } finally {
+          useConfirmModalStore.getState().closeModal();
+        }
+      },
+      onCancel: () => {
+        useConfirmModalStore.getState().closeModal();
+      },
+    });
+  };
 
   const { data, isLoading, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
@@ -119,7 +147,7 @@ export default function ChatsIndividualPage() {
           <ChatHeader
             title={partner?.partnerNickname ?? ''}
             partnerId={partner?.partnerId}
-            onLeave={() => console.log('나가기')}
+            onLeave={() => handleLeaveChatRoom(parsedChannelRoomId, partner?.partnerNickname ?? '')}
           />
         )}
         <div className="flex flex-col gap-6">
