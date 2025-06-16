@@ -35,10 +35,6 @@ export default function KeywordTagGroup({
     ([category, key]) => `${category.toUpperCase()}_${key}`,
   );
 
-  useEffect(() => {
-    console.log('sameInterests', sameInterests);
-    console.log('normalInterests', normalInterests);
-  });
   const commonInterestList = sameInterests
     ? Object.entries(sameInterests).flatMap(([category, keys]) => {
         const normalizedCategory = normalizeCategory(category);
