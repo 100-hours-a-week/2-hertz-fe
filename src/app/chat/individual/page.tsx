@@ -28,14 +28,6 @@ export default function ChannelsIndividualPage() {
     });
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [queryClient]);
-
-  useEffect(() => {
     if (inView && hasNextPage) {
       fetchNextPage();
     }
