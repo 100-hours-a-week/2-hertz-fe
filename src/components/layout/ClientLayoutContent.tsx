@@ -16,6 +16,8 @@ import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import NewMessageToast from '../common/NewMessageToast';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -179,6 +181,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       },
       'new-alarm': () => {
         useNewAlarmStore.getState().setHasNewAlarm(true);
+        queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
       },
       'no-any-new-alarm': () => {
         useNewAlarmStore.getState().setHasNewAlarm(false);
@@ -210,6 +213,8 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           messageSendAt,
           partnerProfileImage,
         });
+
+        queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
       },
       'new-signal-reception': (data: unknown) => {
         const { partnerNickname } = data as {
@@ -219,7 +224,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         toast(`${partnerNickname}님에게 첫 메세지가 도착했어요!`, { icon: '💬', duration: 4000 });
       },
     }),
-
     [],
   );
 
@@ -309,21 +313,23 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   }
 
   return (
-    <div
-      className={`relative flex min-h-[100dvh] w-full max-w-[430px] flex-col ${
-        isHiddenUI ? '' : 'bg-white'
-      }`}
-    >
-      {!isHiddenUI && <Header title="" showBackButton={false} showNotificationButton={false} />}
+    <QueryClientProvider client={queryClient}>
       <div
-        className={`flex-grow overflow-y-auto shadow-lg ${isHiddenUI ? '' : 'pt-[56px] pb-[56px]'}`}
+        className={`relative flex min-h-[100dvh] w-full max-w-[430px] flex-col ${
+          isHiddenUI ? '' : 'bg-white'
+        }`}
       >
-        {children}
+        {!isHiddenUI && <Header title="" showBackButton={false} showNotificationButton={false} />}
+        <div
+          className={`flex-grow overflow-y-auto shadow-lg ${isHiddenUI ? '' : 'pt-[56px] pb-[56px]'}`}
+        >
+          {children}
+        </div>
+        {!isHiddenUI && <BottomNavigationBar />}
+        <WaitingModal />
+        <ConfirmModal />
+        <NewMessageToast />
       </div>
-      {!isHiddenUI && <BottomNavigationBar />}
-      <WaitingModal />
-      <ConfirmModal />
-      <NewMessageToast />
-    </div>
+    </QueryClientProvider>
   );
 }
