@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FaAngleLeft } from 'react-icons/fa6';
 import { FaRegBell } from 'react-icons/fa';
-
+import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
@@ -17,6 +17,7 @@ export default function Header({
   showNotificationButton = false,
 }: HeaderProps) {
   const router = useRouter();
+  const hasNewAlarm = useNewAlarmStore((state) => state.hasNewAlarm);
 
   const handleBack = () => {
     router.back();
@@ -50,10 +51,27 @@ export default function Header({
         {title}
       </h1>
 
-      <div>
+      <div className="flex items-center justify-center">
         {showNotificationButton ? (
-          <button className="mr-5 cursor-pointer p-1">
-            <FaRegBell onClick={handleAlarm} className="text-[clamp(1rem,2vw,1.2rem)]" />
+          <button className="relative mr-5 cursor-pointer p-1">
+            {hasNewAlarm ? (
+              <Image
+                src="/images/notification-new.png"
+                onClick={handleAlarm}
+                width={18}
+                height={18}
+                alt="ring"
+              />
+            ) : (
+              <Image
+                className="mr-0.8"
+                src="/images/notification-normal.png"
+                onClick={handleAlarm}
+                width={18}
+                height={18}
+                alt="alarm"
+              />
+            )}
           </button>
         ) : (
           <div className="w-5" />
