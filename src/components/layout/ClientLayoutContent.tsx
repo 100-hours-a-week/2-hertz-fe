@@ -14,6 +14,8 @@ import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { getChannelRoomDetail } from '@/lib/api/chat';
 import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
+import NewMessageToast from '../common/NewMessageToast';
+import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 
 const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -181,6 +183,41 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       'no-any-new-alarm': () => {
         useNewAlarmStore.getState().setHasNewAlarm(false);
       },
+      'new-message-reception': (data: unknown) => {
+        const {
+          relationType,
+          channelRoomId,
+          partnerId,
+          partnerNickname,
+          message,
+          messageSendAt,
+          partnerProfileImage,
+        } = data as {
+          relationType: string;
+          channelRoomId: number;
+          partnerId: number;
+          partnerNickname: string;
+          message: string;
+          messageSendAt: string;
+          partnerProfileImage: string;
+        };
+
+        useNewMessageStore.getState().showToast({
+          channelRoomId,
+          partnerId,
+          partnerNickname,
+          message,
+          messageSendAt,
+          partnerProfileImage,
+        });
+      },
+      'new-signal-reception': (data: unknown) => {
+        const { partnerNickname } = data as {
+          partnerNickname: string;
+        };
+
+        toast(`${partnerNickname}님에게 첫 메세지가 도착했어요!`, { icon: '💬', duration: 4000 });
+      },
     }),
 
     [],
@@ -286,6 +323,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       {!isHiddenUI && <BottomNavigationBar />}
       <WaitingModal />
       <ConfirmModal />
+      <NewMessageToast />
     </div>
   );
 }
