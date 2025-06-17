@@ -16,10 +16,10 @@ import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import NewMessageToast from '../common/NewMessageToast';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 
-const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
+const EXCLUDE_PATHS = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
 const BOTTOM_NAV_HEIGHT = 56;
 
@@ -34,6 +34,10 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const lastOpenedRoomIdRef = useRef<number | null>(null);
   const currentWaitingChannelIdRef = useRef<number | null>(null);
   const lastOpenedPartnerRef = useRef<string | null>(null);
+
+  const shouldConnectSSE = useMemo(() => {
+    return !EXCLUDE_PATHS.some((excludedPath) => pathname?.startsWith(excludedPath));
+  }, [pathname]);
 
   const sseHandlers = useMemo(
     () => ({
@@ -52,12 +56,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           partnerHasResponded: boolean;
         };
 
-        if (
-          hasResponded ||
-          partnerHasResponded ||
-          currentWaitingChannelIdRef.current === channelRoomId
-        )
-          return;
+        if (hasResponded || currentWaitingChannelIdRef.current === channelRoomId) return;
 
         if (partnerHasResponded) {
           lastOpenedRoomIdRef.current = channelRoomId;
@@ -188,7 +187,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       },
       'new-message-reception': (data: unknown) => {
         const {
-          relationType,
           channelRoomId,
           partnerId,
           partnerNickname,
@@ -226,6 +224,17 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     }),
     [],
   );
+
+  useSSE({
+    url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
+    handlers: sseHandlers,
+    enabled: shouldConnectSSE,
+  });
+
+  useEffect(() => {
+    setMounted(true);
+    setIsHiddenUI(EXCLUDE_PATHS.some((route) => pathname.startsWith(route)));
+  }, [pathname]);
 
   const handleAccept = async (channelRoomId: number, partnerNickname: string) => {
     try {
@@ -289,16 +298,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       closeConfirmModal();
     }
   };
-
-  useSSE({
-    url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
-    handlers: sseHandlers,
-  });
-
-  useEffect(() => {
-    setMounted(true);
-    setIsHiddenUI(hiddenRoutes.some((route) => pathname.startsWith(route)));
-  }, [pathname]);
 
   useEffect(() => {
     if (mounted) {

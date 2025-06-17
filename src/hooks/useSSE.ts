@@ -7,7 +7,15 @@ type SSEEventHandlers = {
   [eventName: string]: (data: unknown) => void;
 };
 
-export const useSSE = ({ url, handlers }: { url: string; handlers: SSEEventHandlers }) => {
+export const useSSE = ({
+  url,
+  handlers,
+  enabled = true,
+}: {
+  url: string;
+  handlers: SSEEventHandlers;
+  enabled?: boolean;
+}) => {
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isConnectingRef = useRef(false);
   const handlersRef = useRef(handlers);
@@ -19,6 +27,7 @@ export const useSSE = ({ url, handlers }: { url: string; handlers: SSEEventHandl
   }, [handlers]);
 
   useEffect(() => {
+    if (!enabled) return;
     let eventSource: EventSource | null = null;
 
     const connect = () => {
@@ -82,5 +91,5 @@ export const useSSE = ({ url, handlers }: { url: string; handlers: SSEEventHandl
       }
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
     };
-  }, [url]);
+  }, [url, enabled]);
 };
