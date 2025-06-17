@@ -7,7 +7,8 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function NewMessageToast() {
-  const { toast, hideToast } = useNewMessageStore();
+  const { hideToast } = useNewMessageStore();
+  const toast = useNewMessageStore((state) => state.toast);
   const router = useRouter();
 
   useEffect(() => {

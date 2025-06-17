@@ -1,6 +1,5 @@
 'use client';
 
-import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 import { useEffect, useRef } from 'react';
 
 type SSEEventHandlers = {
@@ -20,7 +19,6 @@ export const useSSE = ({
   const isConnectingRef = useRef(false);
   const handlersRef = useRef(handlers);
   const listenerMapRef = useRef<Record<string, (e: MessageEvent) => void>>({});
-  const showToast = useNewMessageStore((state) => state.showToast);
 
   useEffect(() => {
     handlersRef.current = handlers;
