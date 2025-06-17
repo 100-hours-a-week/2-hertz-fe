@@ -40,7 +40,7 @@ export default function ChatsIndividualPage() {
   const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
     useConfirmModalStore.getState().openModal({
       title: '정말 채팅방을 나가시겠어요?',
-      description: '채널을 나가면 이전 채팅 기록을\n 다시 확인할 수 없어요.',
+      description: '채널을 나가면 메시지를 다시 확인할 수 없으며,\n상대와의 채팅이 종료됩니다',
       confirmText: '나가기',
       cancelText: '취소',
       variant: 'confirm',
