@@ -20,6 +20,7 @@ import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
+import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -88,6 +89,9 @@ export default function ChatsIndividualPage() {
   const partner = data?.pages?.[0]?.data;
   const messages = data?.pages.flatMap((page) => page.data.messages.list) || [];
 
+  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
+  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+
   useEffect(() => {
     if (inView && hasNextPage) {
       fetchNextPage();
@@ -137,8 +141,6 @@ export default function ChatsIndividualPage() {
     );
   if (isLoading)
     return <p className="flex items-center justify-center text-sm font-medium">로딩 중...</p>;
-
-  const isUnmatched = partner?.relationType === 'UNMATCHED';
 
   return (
     <>

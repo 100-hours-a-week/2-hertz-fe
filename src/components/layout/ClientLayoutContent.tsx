@@ -18,6 +18,7 @@ import NewMessageToast from '../common/NewMessageToast';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
+import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 
 const EXCLUDE_PATHS = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
@@ -34,7 +35,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const lastOpenedRoomIdRef = useRef<number | null>(null);
   const currentWaitingChannelIdRef = useRef<number | null>(null);
   const lastOpenedPartnerRef = useRef<string | null>(null);
-
+  const setHasResponded = useMatchingResponseStore((state) => state.setHasResponded);
   const shouldConnectSSE = useMemo(() => {
     return !EXCLUDE_PATHS.some((excludedPath) => pathname?.startsWith(excludedPath));
   }, [pathname]);
@@ -239,7 +240,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const handleAccept = async (channelRoomId: number, partnerNickname: string) => {
     try {
       const res = await postMatchingAccept({ channelRoomId });
-
+      setHasResponded(true);
       switch (res.code) {
         case 'MATCH_SUCCESS':
           toast('매칭이 성사되었습니다!', { icon: '🥳', duration: 4000 });
@@ -281,6 +282,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
   const handleReject = async (channelRoomId: number) => {
     try {
+      setHasResponded(true);
       const res = await postMatchingReject({ channelRoomId });
 
       if (res.code === 'MATCH_REJECTION_SUCCESS') {
