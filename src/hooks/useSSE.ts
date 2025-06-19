@@ -68,8 +68,14 @@ export const useSSE = ({
             console.error(`Error parsing SSE event '${event}':`, err);
           }
         };
-        listenerMapRef.current[event] = listener;
-        eventSource!.addEventListener(event, listener);
+        if (eventSource) {
+          if (listenerMapRef.current[event]) {
+            eventSource.removeEventListener(event, listenerMapRef.current[event]!);
+          }
+
+          listenerMapRef.current[event] = listener;
+          eventSource.addEventListener(event, listener);
+        }
       });
 
       eventSource.onerror = (err: Event) => {
@@ -106,5 +112,5 @@ export const useSSE = ({
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
       clearInterval(heartbeatInterval);
     };
-  }, [url, enabled]);
+  }, [url, enabled, handlers]);
 };

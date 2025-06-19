@@ -36,9 +36,8 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const currentWaitingChannelIdRef = useRef<number | null>(null);
   const lastOpenedPartnerRef = useRef<string | null>(null);
   const setHasResponded = useMatchingResponseStore((state) => state.setHasResponded);
-  const shouldConnectSSE = useMemo(() => {
-    return !EXCLUDE_PATHS.some((excludedPath) => pathname?.startsWith(excludedPath));
-  }, [pathname]);
+  const shouldConnectSSE =
+    pathname && !EXCLUDE_PATHS.some((excludedPath) => pathname.startsWith(excludedPath));
 
   const sseHandlers = useMemo(
     () => ({
@@ -232,12 +231,12 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     [],
   );
 
+  const isPathValid = typeof pathname === 'string' && pathname.length > 0;
   useSSE({
     url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
     handlers: sseHandlers,
-    enabled: shouldConnectSSE,
+    enabled: Boolean(isPathValid && shouldConnectSSE),
   });
-
   useEffect(() => {
     setMounted(true);
     setIsHiddenUI(EXCLUDE_PATHS.some((route) => pathname.startsWith(route)));
