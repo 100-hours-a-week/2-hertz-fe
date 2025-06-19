@@ -19,6 +19,7 @@ export const useSSE = ({
   const isConnectingRef = useRef(false);
   const handlersRef = useRef(handlers);
   const listenerMapRef = useRef<Record<string, (e: MessageEvent) => void>>({});
+  const lastHeartbeatRef = useRef<number>(Date.now());
 
   useEffect(() => {
     handlersRef.current = handlers;
@@ -40,7 +41,12 @@ export const useSSE = ({
 
       eventSource.onopen = () => {
         isConnectingRef.current = false;
+        lastHeartbeatRef.current = Date.now();
       };
+
+      eventSource.addEventListener('heartbeat', () => {
+        lastHeartbeatRef.current = Date.now();
+      });
 
       Object.entries(handlersRef.current).forEach(([event, callback]) => {
         const listener = (e: MessageEvent) => {
@@ -78,6 +84,16 @@ export const useSSE = ({
       };
     };
 
+    const heartbeatInterval = setInterval(() => {
+      const elapsed = Date.now() - lastHeartbeatRef.current;
+      if (elapsed > 30000 && !isConnectingRef.current) {
+        console.warn('💔 heartbeat 누락 - SSE 재연결 시도');
+        eventSource?.close();
+        isConnectingRef.current = false;
+        connect();
+      }
+    }, 16000);
+
     connect();
 
     return () => {
@@ -88,6 +104,7 @@ export const useSSE = ({
         eventSource?.close();
       }
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      clearInterval(heartbeatInterval);
     };
   }, [url, enabled]);
 };
