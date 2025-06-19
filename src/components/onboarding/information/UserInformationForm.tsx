@@ -56,6 +56,11 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
       const axiosError = error as AxiosError<{ code?: string }>;
       const code = axiosError.response?.data?.code;
 
+      if (code === 'DUPLICATE_USER') {
+        toast.error('이미 등록된 사용자입니다. 다시 로그인해주세요.');
+        router.replace('/login');
+      }
+
       if (code === 'DUPLICATE_NICKNAME') {
         toast.error('이미 사용중인 닉네임입니다. 다시 선택해주세요.');
         return;
