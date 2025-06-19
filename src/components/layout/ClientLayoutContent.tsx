@@ -77,12 +77,14 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           imageSrc: '/images/friends.png',
           variant: 'confirm',
           onConfirm: () => {
+            useMatchingResponseStore.getState().setHasResponded(true);
             handleAccept(channelRoomId, partnerNickname);
             closeConfirmModal();
             closeWaitingModal();
             lastOpenedPartnerRef.current = null;
           },
           onCancel: () => {
+            useMatchingResponseStore.getState().setHasResponded(true);
             handleReject(channelRoomId);
             closeConfirmModal();
             closeWaitingModal();
@@ -117,6 +119,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         if (currentWaitingChannelIdRef.current !== channelRoomId) return;
         if (currentWaitingChannelIdRef.current === channelRoomId) {
           currentWaitingChannelIdRef.current = null;
+          useMatchingResponseStore.getState().setHasResponded(true);
           closeWaitingModal();
           closeConfirmModal();
         }
@@ -130,6 +133,9 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           partnerProfileImage: string;
           partnerNickname: string;
         };
+
+        const hasResponded = useMatchingResponseStore.getState().hasResponded;
+        if (hasResponded) return;
 
         try {
           const res = await getChannelRoomDetail(channelRoomId);
@@ -240,7 +246,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const handleAccept = async (channelRoomId: number, partnerNickname: string) => {
     try {
       const res = await postMatchingAccept({ channelRoomId });
-      setHasResponded(true);
       switch (res.code) {
         case 'MATCH_SUCCESS':
           toast('매칭이 성사되었습니다!', { icon: '🥳', duration: 4000 });
@@ -282,7 +287,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
   const handleReject = async (channelRoomId: number) => {
     try {
-      setHasResponded(true);
       const res = await postMatchingReject({ channelRoomId });
 
       if (res.code === 'MATCH_REJECTION_SUCCESS') {
