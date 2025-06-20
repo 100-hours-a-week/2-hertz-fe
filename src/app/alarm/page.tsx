@@ -16,8 +16,8 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getAlarmList } from '@/lib/api/alarm';
 import { useEffect } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
-import ChatRoomNotFoundPage from '@/components/chat/ChatRoomNotFound';
 import AlarmListNotFoundPage from '@/components/alarm/AlarmListNotFound';
+import toast from 'react-hot-toast';
 
 dayjs.extend(relativeTime);
 dayjs.locale('ko');
@@ -92,7 +92,12 @@ export default function AlarmPage() {
               return (
                 <div
                   key={index}
-                  onClick={() => router.push(`/chat/individual/${roomId}?page=0&size=20`)}
+                  onClick={() => {
+                    if (!roomId) {
+                      toast.error('이미 나간 채팅방입니다.');
+                    }
+                    router.push(`/chat/individual/${roomId}?page=0&size=20`);
+                  }}
                   className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
                 >
                   <div className="mt-1 mb-1 flex items-center justify-between">
