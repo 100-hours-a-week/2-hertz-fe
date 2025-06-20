@@ -16,10 +16,11 @@ import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import NewMessageToast from '../common/NewMessageToast';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
+import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 
-const hiddenRoutes = ['/login', '/onboarding', '/not-found'];
+const EXCLUDE_PATHS = ['/login', '/onboarding', '/not-found'];
 const HEADER_HEIGHT = 56;
 const BOTTOM_NAV_HEIGHT = 56;
 
@@ -34,6 +35,9 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const lastOpenedRoomIdRef = useRef<number | null>(null);
   const currentWaitingChannelIdRef = useRef<number | null>(null);
   const lastOpenedPartnerRef = useRef<string | null>(null);
+  const setHasResponded = useMatchingResponseStore((state) => state.setHasResponded);
+  const shouldConnectSSE =
+    pathname && !EXCLUDE_PATHS.some((excludedPath) => pathname.startsWith(excludedPath));
 
   const sseHandlers = useMemo(
     () => ({
@@ -52,12 +56,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           partnerHasResponded: boolean;
         };
 
-        if (
-          hasResponded ||
-          partnerHasResponded ||
-          currentWaitingChannelIdRef.current === channelRoomId
-        )
-          return;
+        if (hasResponded || currentWaitingChannelIdRef.current === channelRoomId) return;
 
         if (partnerHasResponded) {
           lastOpenedRoomIdRef.current = channelRoomId;
@@ -77,12 +76,14 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           imageSrc: '/images/friends.png',
           variant: 'confirm',
           onConfirm: () => {
+            useMatchingResponseStore.getState().setHasResponded(true);
             handleAccept(channelRoomId, partnerNickname);
             closeConfirmModal();
             closeWaitingModal();
             lastOpenedPartnerRef.current = null;
           },
           onCancel: () => {
+            useMatchingResponseStore.getState().setHasResponded(true);
             handleReject(channelRoomId);
             closeConfirmModal();
             closeWaitingModal();
@@ -117,6 +118,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         if (currentWaitingChannelIdRef.current !== channelRoomId) return;
         if (currentWaitingChannelIdRef.current === channelRoomId) {
           currentWaitingChannelIdRef.current = null;
+          useMatchingResponseStore.getState().setHasResponded(true);
           closeWaitingModal();
           closeConfirmModal();
         }
@@ -130,6 +132,9 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           partnerProfileImage: string;
           partnerNickname: string;
         };
+
+        const hasResponded = useMatchingResponseStore.getState().hasResponded;
+        if (hasResponded) return;
 
         try {
           const res = await getChannelRoomDetail(channelRoomId);
@@ -188,7 +193,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       },
       'new-message-reception': (data: unknown) => {
         const {
-          relationType,
           channelRoomId,
           partnerId,
           partnerNickname,
@@ -227,10 +231,20 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     [],
   );
 
+  const isPathValid = typeof pathname === 'string' && pathname.length > 0;
+  useSSE({
+    url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
+    handlers: sseHandlers,
+    enabled: Boolean(isPathValid && shouldConnectSSE),
+  });
+  useEffect(() => {
+    setMounted(true);
+    setIsHiddenUI(EXCLUDE_PATHS.some((route) => pathname.startsWith(route)));
+  }, [pathname]);
+
   const handleAccept = async (channelRoomId: number, partnerNickname: string) => {
     try {
       const res = await postMatchingAccept({ channelRoomId });
-
       switch (res.code) {
         case 'MATCH_SUCCESS':
           toast('매칭이 성사되었습니다!', { icon: '🥳', duration: 4000 });
@@ -289,16 +303,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       closeConfirmModal();
     }
   };
-
-  useSSE({
-    url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
-    handlers: sseHandlers,
-  });
-
-  useEffect(() => {
-    setMounted(true);
-    setIsHiddenUI(hiddenRoutes.some((route) => pathname.startsWith(route)));
-  }, [pathname]);
 
   useEffect(() => {
     if (mounted) {

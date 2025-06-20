@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function NewMessageToast() {
-  const { toast, hideToast } = useNewMessageStore();
+  const { hideToast } = useNewMessageStore();
+  const toast = useNewMessageStore((state) => state.toast);
   const router = useRouter();
+  const pathname = usePathname();
+  const currentRoomId = pathname?.startsWith('/chat/individual/')
+    ? Number(pathname.split('/')[3]?.split('?')[0])
+    : null;
 
   useEffect(() => {
     if (toast) {
@@ -19,7 +24,7 @@ export default function NewMessageToast() {
     }
   }, [toast]);
 
-  if (!toast) return null;
+  if (!toast || currentRoomId === toast.channelRoomId) return null;
 
   const handleClick = () => {
     router.push(`/chat/individual/${toast.channelRoomId}?page=0&size=0`);

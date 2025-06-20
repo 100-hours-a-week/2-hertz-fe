@@ -20,6 +20,7 @@ import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
+import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -40,7 +41,7 @@ export default function ChatsIndividualPage() {
   const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
     useConfirmModalStore.getState().openModal({
       title: '정말 채팅방을 나가시겠어요?',
-      description: '채널을 나가면 이전 채팅 기록을\n 다시 확인할 수 없어요.',
+      description: '채널을 나가면 메시지를 다시 확인할 수 없으며,\n상대와의 채팅이 종료됩니다',
       confirmText: '나가기',
       cancelText: '취소',
       variant: 'confirm',
@@ -87,6 +88,9 @@ export default function ChatsIndividualPage() {
 
   const partner = data?.pages?.[0]?.data;
   const messages = data?.pages.flatMap((page) => page.data.messages.list) || [];
+
+  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
+  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
 
   useEffect(() => {
     if (inView && hasNextPage) {
@@ -137,8 +141,6 @@ export default function ChatsIndividualPage() {
     );
   if (isLoading)
     return <p className="flex items-center justify-center text-sm font-medium">로딩 중...</p>;
-
-  const isUnmatched = partner?.relationType === 'UNMATCHED';
 
   return (
     <>
