@@ -3,8 +3,22 @@
 import Image from 'next/image';
 import { getKakaoRedirect } from '@/lib/api/auth';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { isAuthenticated } from '@/utils/auth';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [showPage, setShowPage] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.replace('/home');
+    } else {
+      setShowPage(true);
+    }
+  }, []);
+
   const handleLogin = async () => {
     try {
       await getKakaoRedirect();
@@ -14,11 +28,13 @@ export default function LoginPage() {
     }
   };
 
+  if (!showPage) return null;
+
   return (
     <main className="flex h-screen flex-col items-center justify-center px-10">
-      <div className="flex flex-col items-center gap-8">
+      <button className="flex flex-col items-center gap-8">
         <Image src="/icons/logo-main.svg" alt="logo" width={250} height={500} priority />
-      </div>
+      </button>
 
       <div
         onClick={handleLogin}

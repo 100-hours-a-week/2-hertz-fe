@@ -7,9 +7,15 @@ import toast from 'react-hot-toast';
 const MAX_INPUT_LENGTH = 300;
 interface ChatSignalInputBoxProps {
   onSend: (message: string, onSuccess: () => void) => void;
+  placeholder?: string;
+  disabled?: boolean;
 }
 
-export default function ChatSignalInputBox({ onSend }: ChatSignalInputBoxProps) {
+export default function ChatSignalInputBox({
+  onSend,
+  placeholder = '메세지를 입력해주세요',
+  disabled = false,
+}: ChatSignalInputBoxProps) {
   const [value, setValue] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -50,7 +56,8 @@ export default function ChatSignalInputBox({ onSend }: ChatSignalInputBoxProps) 
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
         onKeyDown={handleKeyDown}
-        placeholder="메세지를 입력해주세요"
+        placeholder={placeholder}
+        disabled={disabled}
         className="ml-2 flex-1 bg-transparent text-xs text-gray-500 outline-none placeholder:text-gray-400"
       />
       <button

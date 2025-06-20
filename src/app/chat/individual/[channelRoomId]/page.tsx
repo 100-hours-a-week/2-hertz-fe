@@ -6,16 +6,21 @@ import ChatHeader from '@/components/layout/ChatHeader';
 import ChatSignalInputBox from '@/components/chat/common/ChatSignalInputBox';
 import {
   ChannelRoomDetailResponse,
+  deleteChannelRoom,
   getChannelRoomDetail,
   postChannelMessage,
 } from '@/lib/api/chat';
 import { useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { formatKoreanDate } from '@/utils/format';
+import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
+import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
+import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -24,6 +29,38 @@ export default function ChatsIndividualPage() {
 
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
+
+  const router = useRouter();
+
+  const {
+    shouldShowModal,
+    channelRoomId: waitingModalChannelId,
+    openModal,
+  } = useWaitingModalStore();
+
+  const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
+    useConfirmModalStore.getState().openModal({
+      title: '정말 채팅방을 나가시겠어요?',
+      description: '채널을 나가면 메시지를 다시 확인할 수 없으며,\n상대와의 채팅이 종료됩니다',
+      confirmText: '나가기',
+      cancelText: '취소',
+      variant: 'confirm',
+      onConfirm: async () => {
+        try {
+          await deleteChannelRoom(channelRoomId);
+          toast.success(`${partnerNickname}님과의 채팅방에서 나갔습니다.`);
+          router.push('/chat');
+        } catch (e) {
+          toast.error('채팅방 나가기 중 문제가 발생했어요.');
+        } finally {
+          useConfirmModalStore.getState().closeModal();
+        }
+      },
+      onCancel: () => {
+        useConfirmModalStore.getState().closeModal();
+      },
+    });
+  };
 
   const { data, isLoading, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
@@ -52,11 +89,25 @@ export default function ChatsIndividualPage() {
   const partner = data?.pages?.[0]?.data;
   const messages = data?.pages.flatMap((page) => page.data.messages.list) || [];
 
+  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
+  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+
   useEffect(() => {
     if (inView && hasNextPage) {
       fetchNextPage();
     }
   }, [inView, hasNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    if (
+      shouldShowModal &&
+      partner?.partnerNickname &&
+      waitingModalChannelId === parsedChannelRoomId &&
+      partner?.relationType !== 'MATCHING'
+    ) {
+      openModal(partner.partnerNickname, parsedChannelRoomId);
+    }
+  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
 
   // polling
   useEffect(() => {
@@ -94,11 +145,13 @@ export default function ChatsIndividualPage() {
   return (
     <>
       <main className="relative flex h-full w-full flex-col overflow-x-hidden px-6 pb-18">
-        <ChatHeader
-          title={partner?.partnerNickname ?? ''}
-          onLeave={() => console.log('나가기')}
-          onToggleDetail={() => console.log('상세 보기 토글')}
-        />
+        {typeof partner?.partnerId === 'number' && (
+          <ChatHeader
+            title={partner?.partnerNickname ?? ''}
+            partnerId={partner?.partnerId}
+            onLeave={() => handleLeaveChatRoom(parsedChannelRoomId, partner?.partnerNickname ?? '')}
+          />
+        )}
         <div className="flex flex-col gap-6">
           {messages.map((msg, index) => {
             const currentDate = formatKoreanDate(msg.messageSendAt);
@@ -118,9 +171,15 @@ export default function ChatsIndividualPage() {
                     profileImage={partner?.partnerProfileImage ?? '/images/default-profile.png'}
                     contents={msg.messageContents}
                     sentAt={msg.messageSendAt}
+                    partnerId={partner?.partnerId ?? null}
+                    relationType={partner?.relationType ?? null}
                   />
                 ) : (
-                  <SenderMessage contents={msg.messageContents} sentAt={msg.messageSendAt} />
+                  <SenderMessage
+                    contents={msg.messageContents}
+                    sentAt={msg.messageSendAt}
+                    relationType={partner?.relationType ?? null}
+                  />
                 )}
               </div>
             );
@@ -128,9 +187,20 @@ export default function ChatsIndividualPage() {
           <div ref={bottomRef} />
         </div>
       </main>
-      <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
-        <ChatSignalInputBox onSend={handleSend} />
-      </div>
+      {isUnmatched ? (
+        <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
+          <UnavailableChannelBanner />
+          <ChatSignalInputBox
+            onSend={handleSend}
+            disabled={true}
+            placeholder="더 이상 메세지를 보낼 수 없습니다"
+          />
+        </div>
+      ) : (
+        <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
+          <ChatSignalInputBox onSend={handleSend} placeholder="메세지를 입력해주세요" />
+        </div>
+      )}
     </>
   );
 }

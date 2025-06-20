@@ -82,13 +82,6 @@ export default function UserPreferenceForm({ onStepChange }: UserPreferenceFormP
   });
 
   useEffect(() => {
-    const stepFromQuery = getStepFromQuery();
-    if (stepFromQuery !== step) {
-      setStep(stepFromQuery);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
     if (!searchParams.get('step')) {
       const newParams = new URLSearchParams(searchParams.toString());
       newParams.set('step', '1');

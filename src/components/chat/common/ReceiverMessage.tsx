@@ -1,13 +1,17 @@
 'use client';
 
+import clsx from 'clsx';
 import dayjs from 'dayjs';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface ReceiverMessageProps {
   nickname: string;
   profileImage: string;
   contents: string;
   sentAt: string;
+  partnerId: number;
+  relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
 }
 
 export default function ReceiverMessage({
@@ -15,21 +19,36 @@ export default function ReceiverMessage({
   profileImage,
   contents,
   sentAt,
+  partnerId,
+  relationType,
 }: ReceiverMessageProps) {
+  const router = useRouter();
+
   const getSafeImageSrc = (src: string) => {
     if (!src || src.trim() === '') return '/images/default-profile.png';
-
     if (src.startsWith('http') || src.startsWith('/')) return src;
 
     const cleaned = src.replace(/^(\.\/|\.\.\/)+/, '');
 
     return `/${cleaned}`;
   };
+
+  const handleProfileClick = () => {
+    router.push(`/profile/${partnerId}`);
+  };
+
   return (
     <div className="flex items-start justify-start gap-1.5">
       <div className="mr-2 flex flex-col items-center">
-        <div className="relative h-10 w-10 rounded-full bg-gradient-to-tr from-[#7BA1FF] via-[#7BA1FF] to-transparent p-[2px]">
-          <div className="h-full w-full rounded-full bg-white">
+        <div
+          className={clsx(
+            'relative h-10 w-10 rounded-full bg-gradient-to-tr to-transparent p-[2px]',
+            relationType === 'MATCHING'
+              ? 'from-[var(--pink)] via-[#FF73B7]'
+              : 'from-[#7BA1FF] via-[#7BA1FF]',
+          )}
+        >
+          <div onClick={handleProfileClick} className="h-full w-full rounded-full bg-white">
             <Image
               src={getSafeImageSrc(profileImage) || '/images/default-profile.png'}
               width={36}
@@ -45,7 +64,12 @@ export default function ReceiverMessage({
         <p className="mt-1 text-sm font-semibold text-[var(--gray-400)]">{nickname}</p>
         <div className="mt-1.5 flex pr-4">
           <div className="flex max-w-[16rem] items-end gap-2">
-            <div className="inline-block rounded-3xl border border-[var(--blue)] bg-white px-4 py-2 text-xs leading-[1.4] break-all whitespace-pre-wrap text-black">
+            <div
+              className={clsx(
+                'inline-block rounded-3xl border bg-white px-4 py-2 text-xs leading-[1.4] break-all whitespace-pre-wrap text-black',
+                relationType === 'MATCHING' ? 'border-[var(--pink)]' : 'border-[var(--blue)]',
+              )}
+            >
               {contents}
             </div>
             <p className="mt-1 text-xs text-[var(--gray-300)]">{dayjs(sentAt).format('HH:mm')}</p>

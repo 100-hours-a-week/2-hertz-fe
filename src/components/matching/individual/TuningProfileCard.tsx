@@ -5,7 +5,6 @@ import { IoRefreshCircle } from 'react-icons/io5';
 import clsx from 'clsx';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Gender } from '@/constants/enum';
 
 interface TuningProfileCardProps {
   profileImage: string;
