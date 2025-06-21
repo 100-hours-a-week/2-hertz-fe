@@ -21,11 +21,24 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     if (!isAuthenticated()) {
       router.replace('/login');
-    } else {
-      setCanRender(true);
+      return;
     }
-  }, [pathname, router]);
 
+    const onboardingStep = localStorage.getItem('onboardingStep');
+
+    if (onboardingStep === 'INFORMATION') {
+      router.replace('/onboarding/information');
+      return;
+    }
+
+    if (onboardingStep === 'INTERESTS') {
+      router.replace('/onboarding/interests');
+      return;
+    }
+
+    setCanRender(true);
+  }, [pathname, router]);
+        
   if (!canRender) return null;
 
   return <>{children}</>;

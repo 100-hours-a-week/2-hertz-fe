@@ -50,6 +50,7 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
 
       if (res.code === 'PROFILE_SAVED_SUCCESSFULLY') {
         localStorage.setItem('accessToken', res.data.accessToken);
+        localStorage.setItem('onboardingStep', 'INTERESTS');
         router.push('/onboarding/interests');
       }
     } catch (error) {
