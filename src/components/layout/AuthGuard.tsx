@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { isAuthenticated } from '@/utils/auth';
 
-const PUBLIC_PATHS = ['/login', '/signup', '/terms'];
+const PUBLIC_PATH_PREFIXES = ['/login', '/onboarding', '/not-found'];
 
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
@@ -12,7 +12,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const [canRender, setCanRender] = useState(false);
 
   useEffect(() => {
-    const isPublic = PUBLIC_PATHS.includes(pathname);
+    const isPublic = PUBLIC_PATH_PREFIXES.some((publicPath) => pathname.startsWith(publicPath));
 
     if (isPublic) {
       setCanRender(true);
