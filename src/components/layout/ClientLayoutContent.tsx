@@ -10,6 +10,7 @@ import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { ConfirmModal } from '../common/ConfirmModal';
 import WaitingModal from '../common/WaitingModal';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
+
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { getChannelRoomDetail } from '@/lib/api/chat';
 import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
@@ -237,6 +238,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     handlers: sseHandlers,
     enabled: Boolean(isPathValid && shouldConnectSSE),
   });
+  
   useEffect(() => {
     setMounted(true);
     setIsHiddenUI(EXCLUDE_PATHS.some((route) => pathname.startsWith(route)));

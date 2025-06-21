@@ -68,6 +68,7 @@ export const useSSE = ({
             console.error(`Error parsing SSE event '${event}':`, err);
           }
         };
+
         if (eventSource) {
           if (listenerMapRef.current[event]) {
             eventSource.removeEventListener(event, listenerMapRef.current[event]!);
@@ -99,7 +100,6 @@ export const useSSE = ({
         connect();
       }
     }, 16000);
-
     connect();
 
     return () => {
