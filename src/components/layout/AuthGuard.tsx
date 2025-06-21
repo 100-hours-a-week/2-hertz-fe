@@ -38,6 +38,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     setCanRender(true);
   }, [pathname, router]);
+        
   if (!canRender) return null;
 
   return <>{children}</>;

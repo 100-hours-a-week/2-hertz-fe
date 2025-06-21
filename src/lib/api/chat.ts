@@ -71,6 +71,7 @@ export const getChannelRoomDetail = async (
       `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
     );
     return response.data;
+
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       const code = error.response?.data?.code;
@@ -82,7 +83,6 @@ export const getChannelRoomDetail = async (
         throw new Error('USER_DEACTIVATED');
       }
     }
-
     throw new Error('UNKNOWN_CHANNEL_ROOM_ERROR');
   }
 };
