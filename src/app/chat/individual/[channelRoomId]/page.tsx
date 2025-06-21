@@ -62,12 +62,21 @@ export default function ChatsIndividualPage() {
     });
   };
 
-  const { data, isLoading, fetchNextPage, hasNextPage } =
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       queryKey: ['channelRoom', parsedChannelRoomId],
-      queryFn: ({ pageParam = 0 }) => {
+      queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
-        return getChannelRoomDetail(parsedChannelRoomId, page, 20);
+        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
+
+        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM') {
+          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+        }
+        if (response.code === 'USER_DEACTIVATED') {
+          throw new Error('USER_DEACTIVATED');
+        }
+
+        return response;
       },
       getNextPageParam: (lastPage) => {
         const pagination = lastPage.data.messages.pageable;
@@ -81,6 +90,20 @@ export default function ChatsIndividualPage() {
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      if (error.message === 'ALREADY_EXITED_CHANNEL_ROOM') {
+        toast.error('이미 나간 채팅방입니다.');
+        router.back();
+      } else if (error.message === 'USER_DEACTIVATED') {
+        toast.error('상대방이 탈퇴한 사용자입니다.');
+        router.back();
+      } else {
+        toast.error('채팅방 정보를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+  }, [isError, error, router]);
 
   useEffect(() => {
     scrollToBottom();
@@ -135,10 +158,7 @@ export default function ChatsIndividualPage() {
     }
   };
 
-  if (!isChannelRoomIdValid)
-    return (
-      <p className="items-center justify-center text-sm font-medium">잘못된 채널 ID 입니다.</p>
-    );
+  if (!isChannelRoomIdValid) return toast.error('나간 채팅방에 다시 접속할 수 없습니다.');
   if (isLoading)
     return <p className="flex items-center justify-center text-sm font-medium">로딩 중...</p>;
 
