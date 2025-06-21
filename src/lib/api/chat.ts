@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios';
+import axios from 'axios';
 
 export interface ChannelRoom {
   channelRoomId: number;
@@ -65,10 +66,25 @@ export const getChannelRoomDetail = async (
   page = 0,
   size = 10,
 ): Promise<ChannelRoomDetailResponse> => {
-  const response = await axiosInstance.get(
-    `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
-  );
-  return response.data;
+  try {
+    const response = await axiosInstance.get(
+      `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
+    );
+    return response.data;
+
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const code = error.response?.data?.code;
+
+      if (code === 'ALREADY_EXITED_CHANNEL_ROOM') {
+        throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+      }
+      if (code === 'USER_DEACTIVATED') {
+        throw new Error('USER_DEACTIVATED');
+      }
+    }
+    throw new Error('UNKNOWN_CHANNEL_ROOM_ERROR');
+  }
 };
 
 export interface PostChannelMessageRequest {

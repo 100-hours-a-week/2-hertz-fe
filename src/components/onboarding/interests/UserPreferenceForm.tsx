@@ -139,6 +139,7 @@ export default function UserPreferenceForm({ onStepChange }: UserPreferenceFormP
     try {
       await postRegisterInterest(data);
       toast.success('저장이 완료되었습니다.');
+      localStorage.setItem('onboardingStep', 'DONE');
       router.push('/home');
     } catch (error) {
       console.error('제출 오류: ', error);
