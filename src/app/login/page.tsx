@@ -3,8 +3,22 @@
 import Image from 'next/image';
 import { getKakaoRedirect } from '@/lib/api/auth';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { isAuthenticated } from '@/utils/auth';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [showPage, setShowPage] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.replace('/home');
+    } else {
+      setShowPage(true);
+    }
+  }, []);
+
   const handleLogin = async () => {
     try {
       await getKakaoRedirect();
@@ -13,6 +27,8 @@ export default function LoginPage() {
       toast.error('카카오 로그인에 실패했습니다.');
     }
   };
+
+  if (!showPage) return null;
 
   return (
     <main className="flex h-screen flex-col items-center justify-center px-10">

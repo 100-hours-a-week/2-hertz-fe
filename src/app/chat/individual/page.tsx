@@ -8,8 +8,8 @@ import Header from '@/components/layout/Header';
 import Image from 'next/image';
 import { useInView } from 'react-intersection-observer';
 import { useEffect } from 'react';
-import ChatRoomNotFoundPage from '@/components/chat/ChatRoomNotFound.tsx';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import ChatRoomNotFoundPage from '@/components/chat/ChatRoomNotFound';
 
 export default function ChannelsIndividualPage() {
   const router = useRouter();
@@ -26,14 +26,6 @@ export default function ChannelsIndividualPage() {
       },
       initialPageParam: 0,
     });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [queryClient]);
 
   useEffect(() => {
     if (inView && hasNextPage) {
@@ -70,7 +62,7 @@ export default function ChannelsIndividualPage() {
                   className="h-full w-full rounded-full object-cover"
                 />
                 {!room.isRead && (
-                  <span className="absolute right-0 bottom-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-pink-400" />
+                  <span className="absolute right-0 bottom-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-[var(--pink)]" />
                 )}
               </div>
 
@@ -81,10 +73,16 @@ export default function ChannelsIndividualPage() {
                       className={`rounded-2xl px-2 py-1 text-xs font-semibold ${
                         room.relationType === 'SIGNAL'
                           ? 'bg-[var(--gray-100)] text-[var(--blue)]'
-                          : 'bg-[var(--light-pink)] text-[var(--pink)]'
+                          : room.relationType === 'MATCHING'
+                            ? 'bg-[var(--light-pink)] text-[var(--pink)]'
+                            : 'bg-[var(--gray-100)] text-[var(--gray-300)]'
                       }`}
                     >
-                      {room.relationType === 'SIGNAL' ? '시그널' : '매칭'}
+                      {room.relationType === 'SIGNAL'
+                        ? '시그널'
+                        : room.relationType === 'MATCHING'
+                          ? '매칭'
+                          : '실패'}
                     </span>
                     <span className="text-sm font-semibold text-ellipsis">
                       {room.partnerNickname}

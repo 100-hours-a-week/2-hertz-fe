@@ -11,52 +11,60 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/ko';
 import { useRouter } from 'next/navigation';
+import { useInView } from 'react-intersection-observer';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { getAlarmList } from '@/lib/api/alarm';
+import { useEffect } from 'react';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import AlarmListNotFoundPage from '@/components/alarm/AlarmListNotFound';
+import toast from 'react-hot-toast';
 
 dayjs.extend(relativeTime);
 dayjs.locale('ko');
 
-const mockAlarmList = [
-  {
-    type: 'NOTICE',
-    title: ' 새로운 ‘튠 로그’ 기능이 추가되었습니다!',
-    content:
-      '안녕하세요, Hertz 팀입니다. 이번 업데이트를 통해 여러분의 감정 연결을 기록해주는 ‘튠 로그’ 기능이 새롭게 추가되었습니다. 튠 로그는 매칭된 순간과 그 이후의 감정 흐름을 시그널처럼 기록하여, 나중에 다시 꺼내볼 수 있는 감정 아카이브 역할을 합니다. 오늘의 연결이 스쳐 지나가지 않도록, 따뜻한 감정을 기억할 수 있도록 준비했어요.',
-    isRead: false,
-    createdDate: '2025-05-19T21:13:00',
-  },
-  {
-    type: 'REPORT',
-    title: '튜닝 결과가 도착했습니다!',
-    content: '',
-    isRead: true,
-    createdDate: '2025-05-12T14:13:00',
-  },
-  {
-    type: 'NOTICE',
-    title: ' 새로운 ‘튠 로그’ 기능이 추가되었습니다!',
-    content:
-      '안녕하세요, Hertz 팀입니다. 이번 업데이트를 통해 여러분의 감정 연결을 기록해주는 ‘튠 로그’ 기능이 새롭게 추가되었습니다.',
-    isRead: false,
-    createdDate: '2025-05-19T21:13:00',
-  },
-  {
-    type: 'REPORT',
-    title: '튜닝 결과가 도착했습니다!',
-    content: '',
-    isRead: true,
-    createdDate: '2025-05-12T14:13:00',
-  },
-];
-
 export default function AlarmPage() {
   const router = useRouter();
+  const { ref, inView } = useInView();
+
+  const queryClient = useQueryClient();
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
+    useInfiniteQuery({
+      queryKey: ['alarmLists'],
+      queryFn: ({ pageParam = 0 }) => getAlarmList(pageParam, 10),
+      getNextPageParam: (lastPage) => {
+        return lastPage.data?.isLast ? undefined : (lastPage.data?.pageNumber ?? 0) + 1;
+      },
+      initialPageParam: 0,
+    });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (inView && hasNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, fetchNextPage]);
+
+  if (isLoading) return <LoadingSpinner />;
+  if (isError || !data) {
+    return <AlarmListNotFoundPage />;
+  }
+
+  const alarms = data.pages.flatMap((page) => page.data?.list ?? []) ?? [];
 
   return (
     <>
       <Header title="알림" showBackButton={true} showNotificationButton={false} />
       <div className="space-y-3 px-4 py-2">
         <Accordion type="single" collapsible className="w-full">
-          {mockAlarmList.map((alarm, index) => {
+          {alarms.map((alarm, index) => {
             if (alarm.type === 'REPORT') {
               return (
                 <div
@@ -74,15 +82,40 @@ export default function AlarmPage() {
                   </div>
                   <div className="flex items-center justify-between py-2 text-left text-sm font-medium">
                     <div className="flex flex-col gap-1 px-1">
-                      <span className={alarm.isRead ? 'text-[var(--gray-300)]' : 'text-black'}>
-                        💌 {alarm.title}
-                      </span>
+                      <span className="text-black">💌 {alarm.title}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else if (alarm.type === 'MATCHING') {
+              const roomId = alarm.channelRoomId;
+              return (
+                <div
+                  key={index}
+                  onClick={() => {
+                    if (!roomId) {
+                      toast.error('이미 나간 채팅방입니다.');
+                    }
+                    router.push(`/chat/individual/${roomId}?page=0&size=20`);
+                  }}
+                  className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
+                >
+                  <div className="mt-1 mb-1 flex items-center justify-between">
+                    <span className="flex-shrink-0 rounded-2xl bg-[var(--light-pink)] px-2.5 py-1 text-xs font-semibold text-[var(--pink)]">
+                      매칭
+                    </span>
+                    <span className="text-xs text-[var(--gray-300)]">
+                      {dayjs(alarm.createdDate).fromNow()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 text-left text-sm font-medium">
+                    <div className="flex flex-col gap-1 px-1">
+                      <span className="text-black">{alarm.title}</span>
                     </div>
                   </div>
                 </div>
               );
             }
-
             return (
               <AccordionItem
                 key={index}
@@ -100,15 +133,13 @@ export default function AlarmPage() {
                 <AccordionTrigger className="flex items-center justify-between text-left text-sm font-medium">
                   <div className="flex w-full flex-col gap-1">
                     <div className="inline-flex items-center gap-1">
-                      <span
-                        className={`px-1 text-sm font-semibold text-black ${alarm.isRead ? 'font-normal text-gray-500' : ''}`}
-                      >
+                      <span className={`px-1 text-sm font-semibold text-black`}>
                         📢 {alarm.title}
                       </span>
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="text-sm leading-6 whitespace-pre-wrap text-[var(--gray-300)]">
+                <AccordionContent className="text-wrap-keep text-sm leading-6 text-[var(--gray-300)]">
                   {alarm.content}
                 </AccordionContent>
               </AccordionItem>

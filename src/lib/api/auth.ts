@@ -42,3 +42,14 @@ export const reissueAccessToken = async (): Promise<AccessTokenReissueResponse> 
 
   return response.data;
 };
+
+interface DeleteLogoutResponse {
+  code: string;
+  message: string;
+  data: null;
+}
+
+export const deleteLogout = async (): Promise<DeleteLogoutResponse> => {
+  const response = await axiosInstance.delete(`${BASE_URL}/v2/auth/logout`);
+  return response.data;
+};

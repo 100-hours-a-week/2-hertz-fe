@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios';
+import axios from 'axios';
 
 export interface ChannelRoom {
   channelRoomId: number;
@@ -7,7 +8,7 @@ export interface ChannelRoom {
   lastMessage: string;
   lastMessageTime: string;
   isRead: boolean;
-  relationType: 'SIGNAL' | 'MATCHING';
+  relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
 }
 
 export interface GetChannelRoomListResponse {
@@ -50,7 +51,7 @@ export interface ChannelRoomDetailResponse {
     partnerId: number;
     partnerProfileImage: string;
     partnerNickname: string;
-    relationType: 'SIGNAL' | 'MATCHING';
+    relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
     messages: Messages;
     pageable: {
       pageNumber: number;
@@ -65,10 +66,25 @@ export const getChannelRoomDetail = async (
   page = 0,
   size = 10,
 ): Promise<ChannelRoomDetailResponse> => {
-  const response = await axiosInstance.get(
-    `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
-  );
-  return response.data;
+  try {
+    const response = await axiosInstance.get(
+      `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
+    );
+    return response.data;
+
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const code = error.response?.data?.code;
+
+      if (code === 'ALREADY_EXITED_CHANNEL_ROOM') {
+        throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+      }
+      if (code === 'USER_DEACTIVATED') {
+        throw new Error('USER_DEACTIVATED');
+      }
+    }
+    throw new Error('UNKNOWN_CHANNEL_ROOM_ERROR');
+  }
 };
 
 export interface PostChannelMessageRequest {
@@ -86,5 +102,16 @@ export const postChannelMessage = async (
   payload: PostChannelMessageRequest,
 ): Promise<PostChannelMessageResponse> => {
   const response = await axiosInstance.post(`/v1/channel-rooms/${channelRoomId}/messages`, payload);
+  return response.data;
+};
+
+export interface DeleteChannelResponse {
+  code: string;
+  message: string;
+  data: null;
+}
+
+export const deleteChannelRoom = async (channelRoomId: number): Promise<DeleteChannelResponse> => {
+  const response = await axiosInstance.delete(`/v2/channel-rooms/${channelRoomId}`);
   return response.data;
 };

@@ -44,13 +44,23 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
   const handleSubmit = methods.handleSubmit(async (data) => {
     try {
       const res = await postRegisterUserInfo(data);
+      if (res) {
+        localStorage.setItem('userId', res.data.userId);
+      }
+
       if (res.code === 'PROFILE_SAVED_SUCCESSFULLY') {
         localStorage.setItem('accessToken', res.data.accessToken);
+        localStorage.setItem('onboardingStep', 'INTERESTS');
         router.push('/onboarding/interests');
       }
     } catch (error) {
       const axiosError = error as AxiosError<{ code?: string }>;
       const code = axiosError.response?.data?.code;
+
+      if (code === 'DUPLICATE_USER') {
+        toast.error('이미 등록된 사용자입니다. 다시 로그인해주세요.');
+        router.replace('/login');
+      }
 
       if (code === 'DUPLICATE_NICKNAME') {
         toast.error('이미 사용중인 닉네임입니다. 다시 선택해주세요.');

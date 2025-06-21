@@ -160,3 +160,8 @@ body {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+.text-wrap-keep {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
