@@ -5,6 +5,7 @@ import localFont from 'next/font/local';
 import { Toaster } from 'react-hot-toast';
 import ClientLayoutContent from '@/components/layout/ClientLayoutContent';
 import Providers from './providers';
+import { AuthGuard } from '@/components/layout/AuthGuard';
 
 const pretendard = localFont({
   src: '../fonts/PretendardVariable.woff2',
@@ -33,9 +34,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <Providers>
           <ClientLayoutContent>
-            <div className="mx-auto flex h-[calc(screen-32px)] w-full max-w-md flex-col bg-white">
-              {children}
-            </div>
+            <AuthGuard>
+              <div className="mx-auto flex h-[calc(screen-32px)] w-full max-w-md flex-col bg-white">
+                {children}
+              </div>
+            </AuthGuard>
           </ClientLayoutContent>
         </Providers>
         <Toaster />
