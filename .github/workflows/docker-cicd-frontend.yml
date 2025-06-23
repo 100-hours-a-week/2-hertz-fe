@@ -1,4 +1,4 @@
-name: Frontend Docker CI/CD
+name: CI/CD Frontend (DOCKER)
 
 on:
   pull_request:
@@ -7,18 +7,17 @@ on:
       - main
       - develop
     paths-ignore:
-      - ".github/workflows/cicd-frontend.yml"
+      - ".github/workflows/**"
 
   workflow_dispatch:
     inputs:
       env:
         description: "배포 환경 선택"
         required: true
-        default: "브랜치를 확인해주세요!"
+        default: "위에 브랜치를 확인해주세요!"
         type: choice
         options:
-          - main
-          - develop
+          - none
 
 jobs:
   frontend-ci:
@@ -79,7 +78,7 @@ jobs:
         run: |
 
           if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
-            BRANCH="${{ github.event.inputs.env }}"
+            BRANCH="${{ github.ref_name }}"
               else
             BRANCH="${{ github.ref_name }}"
           fi
