@@ -1,7 +1,7 @@
 'use client';
 
 import dayjs from 'dayjs';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { getChannelRooms } from '@/lib/api/chat';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
@@ -14,8 +14,6 @@ import ChatRoomNotFoundPage from '@/components/chat/ChatRoomNotFound';
 export default function ChannelsIndividualPage() {
   const router = useRouter();
   const { ref, inView } = useInView();
-
-  const queryClient = useQueryClient();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
     useInfiniteQuery({
@@ -71,18 +69,12 @@ export default function ChannelsIndividualPage() {
                   <div className="flex items-center gap-2 overflow-hidden">
                     <span
                       className={`rounded-2xl px-2 py-1 text-xs font-semibold ${
-                        room.relationType === 'SIGNAL'
-                          ? 'bg-[var(--gray-100)] text-[var(--blue)]'
-                          : room.relationType === 'MATCHING'
-                            ? 'bg-[var(--light-pink)] text-[var(--pink)]'
-                            : 'bg-[var(--gray-100)] text-[var(--gray-300)]'
+                        room.relationType === 'MATCHING'
+                          ? 'bg-[var(--light-pink)] text-[var(--pink)]'
+                          : 'bg-[var(--gray-100)] text-[var(--blue)]'
                       }`}
                     >
-                      {room.relationType === 'SIGNAL'
-                        ? '시그널'
-                        : room.relationType === 'MATCHING'
-                          ? '매칭'
-                          : '실패'}
+                      {room.relationType === 'MATCHING' ? '매칭' : '시그널'}
                     </span>
                     <span className="text-sm font-semibold text-ellipsis">
                       {room.partnerNickname}

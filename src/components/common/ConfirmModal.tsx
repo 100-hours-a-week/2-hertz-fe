@@ -1,5 +1,7 @@
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 
 export function ConfirmModal() {
   const {
@@ -14,6 +16,16 @@ export function ConfirmModal() {
     variant = 'confirm',
     closeModal,
   } = useConfirmModalStore();
+
+  const pathname = usePathname();
+  const prevPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (isOpen && pathname !== prevPathnameRef.current) {
+      closeModal();
+    }
+    prevPathnameRef.current = pathname;
+  }, [pathname, isOpen, closeModal]);
 
   if (!isOpen) return null;
 
@@ -30,8 +42,8 @@ export function ConfirmModal() {
   };
 
   return isOpen ? (
-    <div className="fixed inset-0 z-51 flex items-center justify-center bg-black/40">
-      <div className="relative w-full max-w-xs space-y-4 rounded-2xl bg-white p-6 text-center">
+    <div className="pointer-events-none fixed inset-0 z-51 flex items-center justify-center bg-black/40">
+      <div className="pointer-events-auto relative w-full max-w-xs space-y-4 rounded-2xl bg-white p-6 text-center">
         {imageSrc && (
           <div className="flex w-full justify-center">
             <Image src={imageSrc} alt="friends Image" width={40} height={40} />

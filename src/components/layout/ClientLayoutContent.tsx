@@ -35,16 +35,19 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const lastOpenedRoomIdRef = useRef<number | null>(null);
   const currentWaitingChannelIdRef = useRef<number | null>(null);
   const lastOpenedPartnerRef = useRef<string | null>(null);
-  const setHasResponded = useMatchingResponseStore((state) => state.setHasResponded);
   const shouldConnectSSE =
     pathname && !EXCLUDE_PATHS.some((excludedPath) => pathname.startsWith(excludedPath));
+
+  const getChannelRoomIdFromPath = (pathname: string): number | null => {
+    const match = pathname.match(/\/chat\/individual\/(\d+)/);
+    return match ? Number(match[1]) : null;
+  };
 
   const sseHandlers = useMemo(
     () => ({
       'signal-matching-conversion': (data: unknown) => {
-        const { partnerNickname, channelRoomId } = data as {
+        const { partnerNickname } = data as {
           partnerNickname: string;
-          channelRoomId: number;
         };
         toast.success(`🎉 ${partnerNickname}님과 매칭이 가능해졌어요!`);
       },
@@ -55,6 +58,9 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
           hasResponded: boolean;
           partnerHasResponded: boolean;
         };
+
+        const currentRoomId = getChannelRoomIdFromPath(pathname);
+        if (currentRoomId !== channelRoomId) return;
 
         if (hasResponded || currentWaitingChannelIdRef.current === channelRoomId) return;
 
