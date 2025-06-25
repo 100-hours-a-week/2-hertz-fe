@@ -34,13 +34,26 @@ export const reissueAccessToken = async (): Promise<AccessTokenReissueResponse> 
   console.log('🔁 Token reissue 요청 보냄');
   axios.defaults.withCredentials = true;
 
-  const response = await axios.post<AccessTokenReissueResponse>(
-    `${BASE_URL}/v1/auth/token`,
-    {},
-    { withCredentials: true },
-  );
+  try {
+    const response = await axios.post<AccessTokenReissueResponse>(
+      `${BASE_URL}/v1/auth/token`,
+      {},
+      { withCredentials: true },
+    );
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const code = error.response?.data?.code;
+      if (code === 'REFRESH_TOKEN_INVALID') {
+        console.warn('❌ RefreshToken이 유효하지 않음');
+        localStorage.setItem('hasLoggedIn', 'false');
+        window.location.href = '/login';
+      }
+    }
+
+    throw error;
+  }
 };
 
 interface DeleteLogoutResponse {
