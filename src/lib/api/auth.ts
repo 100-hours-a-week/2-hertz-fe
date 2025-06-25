@@ -47,6 +47,7 @@ export const reissueAccessToken = async (): Promise<AccessTokenReissueResponse> 
       const code = error.response?.data?.code;
       if (code === 'REFRESH_TOKEN_INVALID') {
         console.warn('❌ RefreshToken이 유효하지 않음');
+        localStorage.setItem('hasLoggedIn', 'false');
         window.location.href = '/login';
       }
     }
