@@ -4,33 +4,32 @@ import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
 import ChatSignalInputBox from '@/components/chat/common/ChatSignalInputBox';
-import {
-  ChannelRoomDetailResponse,
-  deleteChannelRoom,
-  getChannelRoomDetail,
-  postChannelMessage,
-} from '@/lib/api/chat';
-import { useQueryClient } from '@tanstack/react-query';
+import { ChannelRoomDetailResponse, deleteChannelRoom, getChannelRoomDetail } from '@/lib/api/chat';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
+import { WebSocketIncomingMessage } from '@/types/WebSocketType';
+import { useSocketIO } from '@/hooks/useSocketIO';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
-  const queryClient = useQueryClient();
   const { ref: scrollRef, inView } = useInView();
 
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
 
   const router = useRouter();
+
+  const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
+    [],
+  );
 
   const {
     shouldShowModal,
@@ -86,6 +85,45 @@ export default function ChatsIndividualPage() {
       enabled: isChannelRoomIdValid,
     });
 
+  const myUserIdRef = useRef<number | null>(null);
+
+  const handleSocketMessage = (data: WebSocketIncomingMessage) => {
+    switch (data.event) {
+      case 'init_user':
+        myUserIdRef.current = data.data;
+        break;
+      case 'receive_message':
+        const { senderId, roomId, message, sendAt } = data.data;
+
+        const isMine = senderId === myUserIdRef.current;
+        if (!isMine) sendMarkAsRead({ roomId });
+        setMessages((prev) => [
+          ...prev,
+          {
+            // messageId: Math.random(), - api 수정 후 실제 id로 적용 예정
+            messageSenderId: senderId,
+            messageContents: message,
+            messageSendAt: sendAt,
+          },
+        ]);
+        scrollToBottom();
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (data) {
+      const allMessages = data.pages.flatMap((page) => page.data.messages.list);
+      setMessages(allMessages);
+      scrollToBottom();
+    }
+  }, [data]);
+
+  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
+    channelRoomId: parsedChannelRoomId,
+    onMessage: handleSocketMessage,
+  });
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -110,8 +148,6 @@ export default function ChatsIndividualPage() {
   }, [data?.pages]);
 
   const partner = data?.pages?.[0]?.data;
-  const messages = data?.pages.flatMap((page) => page.data.messages.list) || [];
-
   const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
   const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
 
@@ -132,30 +168,22 @@ export default function ChatsIndividualPage() {
     }
   }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
 
-  // polling
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['channelRoom', parsedChannelRoomId] });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [parsedChannelRoomId, queryClient]);
-
-  const handleSend = async (message: string, onSuccess: () => void) => {
-    try {
-      const response = await postChannelMessage(parsedChannelRoomId, { message });
-
-      if (response.code === 'MESSAGE_CREATED') {
-        onSuccess();
-      } else if (response.code === 'USER_DEACTIVATED') {
-        toast.error('상대방이 탈퇴한 사용자입니다.');
-      } else {
-        toast.error('알 수 없는 오류가 발생했습니다.');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('메세지 전송에 실패했습니다.');
+  const handleSend = (message: string, onSuccess: () => void) => {
+    if (!partner?.partnerId) {
+      toast.error('상대방 정보가 없습니다.');
+      return;
     }
+
+    const sendAt = new Date().toISOString();
+
+    sendSocketMessage({
+      roomId: parsedChannelRoomId,
+      receiverUserId: partner.partnerId,
+      message,
+      sendAt,
+    });
+
+    onSuccess();
   };
 
   if (!isChannelRoomIdValid) return toast.error('나간 채팅방에 다시 접속할 수 없습니다.');
@@ -177,6 +205,9 @@ export default function ChatsIndividualPage() {
             const currentDate = formatKoreanDate(msg.messageSendAt);
             const prevDate = index > 0 ? formatKoreanDate(messages[index - 1].messageSendAt) : null;
             const isNewDate = currentDate !== prevDate;
+
+            console.log('📅 sendAt:', msg.messageSendAt);
+            console.log('🕓 parsed:', new Date(msg.messageSendAt));
 
             return (
               <div key={msg.messageId} ref={index === messages.length - 1 ? scrollRef : null}>
