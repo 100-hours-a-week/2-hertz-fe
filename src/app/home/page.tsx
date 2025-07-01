@@ -1,15 +1,13 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import MaintenanceNotice from '@/components/common/MaintenanceNotice';
+import BannerSection from '@/components/home/BannerSection';
+import { MatchTypeSelector } from '@/components/home/MatchTypeSelector';
+import Header from '@/components/layout/Header';
 
 export default function HomePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.push('/matching/individual');
-  }, [router]);
-
-  return <MaintenanceNotice />;
+  return (
+    <>
+      <Header showNotificationButton={true} />
+      <BannerSection />
+      <MatchTypeSelector />
+    </>
+  );
 }
