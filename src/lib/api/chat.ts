@@ -28,7 +28,7 @@ export const getChannelRooms = async (page = 0, size = 10): Promise<GetChannelRo
 };
 
 export interface List {
-  messageId: number;
+  messageId?: number;
   messageSenderId: number;
   messageContents: string;
   messageSendAt: string;
@@ -71,7 +71,6 @@ export const getChannelRoomDetail = async (
       `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
     );
     return response.data;
-
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       const code = error.response?.data?.code;
