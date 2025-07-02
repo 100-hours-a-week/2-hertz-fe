@@ -5,6 +5,7 @@ export interface ReceiveMessage {
   senderId: number;
   message: string;
   sendAt: string;
+  messageId?: number;
 }
 
 export interface SendMessage {
@@ -12,6 +13,7 @@ export interface SendMessage {
   receiverUserId: number;
   message: string;
   sendAt: string;
+  messageId?: number;
 }
 
 export interface MarkAsRead {
