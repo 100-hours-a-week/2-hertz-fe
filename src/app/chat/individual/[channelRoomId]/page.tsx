@@ -86,6 +86,7 @@ export default function ChatsIndividualPage() {
     });
 
   const myUserIdRef = useRef<number | null>(null);
+  const hasScrolledRef = useRef(false);
 
   const handleSocketMessage = (data: WebSocketIncomingMessage) => {
     switch (data.event) {
@@ -93,31 +94,43 @@ export default function ChatsIndividualPage() {
         myUserIdRef.current = data.data;
         break;
       case 'receive_message':
-        const { senderId, roomId, message, sendAt } = data.data;
+        const { messageId, senderId, roomId, message, sendAt } = data.data;
 
         const isMine = senderId === myUserIdRef.current;
         if (!isMine) sendMarkAsRead({ roomId });
+
+        const cleandedSendAt =
+          typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
+
         setMessages((prev) => [
           ...prev,
           {
-            // messageId: Math.random(), - api 수정 후 실제 id로 적용 예정
+            messageId: messageId,
             messageSenderId: senderId,
             messageContents: message,
-            messageSendAt: sendAt,
+            messageSendAt: cleandedSendAt,
           },
         ]);
-        scrollToBottom();
         break;
     }
   };
 
   useEffect(() => {
-    if (data) {
+    if (data && !hasScrolledRef.current) {
       const allMessages = data.pages.flatMap((page) => page.data.messages.list);
       setMessages(allMessages);
-      scrollToBottom();
+      hasScrolledRef.current = true;
     }
   }, [data]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const timeout = setTimeout(() => {
+        scrollToBottom();
+      }, 0);
+      return () => clearTimeout(timeout);
+    }
+  }, [messages]);
 
   const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
     channelRoomId: parsedChannelRoomId,
@@ -176,12 +189,29 @@ export default function ChatsIndividualPage() {
 
     const sendAt = new Date().toISOString();
 
-    sendSocketMessage({
-      roomId: parsedChannelRoomId,
-      receiverUserId: partner.partnerId,
-      message,
-      sendAt,
-    });
+    // Optimistic UI
+    // 1️⃣ 먼저 화면에 임시 메시지를 띄움
+    setMessages((prev) => [
+      ...prev,
+      {
+        messageId: Date.now(),
+        messageSenderId: myUserIdRef.current!,
+        messageContents: message,
+        messageSendAt: sendAt,
+      },
+    ]);
+
+    try {
+      // 2️⃣ 서버로 소켓 메시지 전송
+      sendSocketMessage({
+        roomId: parsedChannelRoomId,
+        receiverUserId: partner.partnerId,
+        message,
+        sendAt,
+      });
+    } catch (e) {
+      toast.error('메세지 전송에 실패했어요');
+    }
 
     onSuccess();
   };
@@ -205,9 +235,6 @@ export default function ChatsIndividualPage() {
             const currentDate = formatKoreanDate(msg.messageSendAt);
             const prevDate = index > 0 ? formatKoreanDate(messages[index - 1].messageSendAt) : null;
             const isNewDate = currentDate !== prevDate;
-
-            console.log('📅 sendAt:', msg.messageSendAt);
-            console.log('🕓 parsed:', new Date(msg.messageSendAt));
 
             return (
               <div key={msg.messageId} ref={index === messages.length - 1 ? scrollRef : null}>
