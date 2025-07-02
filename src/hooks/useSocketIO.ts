@@ -22,7 +22,7 @@ export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
     const socket = io('https://dev.hertz-tuning.com', {
       transports: ['websocket'],
       withCredentials: true,
-      path: '/ws',
+      path: '/socket.io',
       forceNew: true,
       upgrade: false,
     });
