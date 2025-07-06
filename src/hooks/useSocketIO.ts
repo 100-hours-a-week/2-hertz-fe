@@ -17,6 +17,11 @@ interface UseSocketIOProps {
 
 export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const onMessageRef = useRef(onMessage);
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
 
   useEffect(() => {
     const socket = io('https://dev.hertz-tuning.com', {
@@ -29,31 +34,38 @@ export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
 
     socketRef.current = socket;
 
-    socket.on('connect', () => {
+    const handleConnect = () => {
       console.log('✅ Socket.IO 연결');
-    });
-
-    socket.on('disconnect', () => {
+    };
+    const handleDisconnect = () => {
       console.log('🔌 Socket.IO 종료');
-    });
-
-    socket.on('connect_error', (err: Error) => {
+    };
+    const handleConnectError = (err: Error) => {
       console.error('❌ 연결 실패:', err);
-    });
+    };
+    const handleInitUser = (data: number) => {
+      onMessageRef.current({ event: 'init_user', data });
+    };
+    const handleReceiveMessage = (data: ReceiveMessage) => {
+      onMessageRef.current({ event: 'receive_message', data });
+    };
 
-    socket.on('init_user', (data: number) => {
-      onMessage({ event: 'init_user', data });
-    });
-
-    socket.on('receive_message', (data: ReceiveMessage) => {
-      onMessage({ event: 'receive_message', data });
-    });
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('init_user', handleInitUser);
+    socket.on('receive_message', handleReceiveMessage);
 
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('init_user', handleInitUser);
+      socket.off('receive_message', handleReceiveMessage);
+      socket.removeAllListeners();
       socket.disconnect();
-      socket.off();
     };
-  }, [channelRoomId, onMessage]);
+  }, [channelRoomId]);
 
   const sendSocketMessage = (payload: SendMessage) => {
     socketRef.current?.emit('send_message', payload);
