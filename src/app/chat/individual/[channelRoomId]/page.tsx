@@ -61,6 +61,10 @@ export default function ChatsIndividualPage() {
     });
   };
 
+  const myUserIdRef = useRef<number | null>(null);
+  const hasScrolledRef = useRef(false);
+  const hasScrolledToBottomRef = useRef(false);
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       queryKey: ['channelRoom', parsedChannelRoomId],
@@ -85,8 +89,27 @@ export default function ChatsIndividualPage() {
       enabled: isChannelRoomIdValid,
     });
 
-  const myUserIdRef = useRef<number | null>(null);
-  const hasScrolledRef = useRef(false);
+  useEffect(() => {
+    const fetchAllPagesThenScroll = async () => {
+      if (!data || hasScrolledToBottomRef.current) return;
+
+      let currentData = data;
+      while (currentData && !currentData.pages.at(-1)?.data.messages.pageable.isLast) {
+        const next = await fetchNextPage();
+        if (!next.data) break;
+        currentData = next.data;
+      }
+
+      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
+      setMessages(allMessages);
+      scrollToBottom();
+      hasScrolledToBottomRef.current = true;
+    };
+
+    if (data && !hasScrolledToBottomRef.current) {
+      fetchAllPagesThenScroll();
+    }
+  }, [data, fetchNextPage]);
 
   const handleSocketMessage = (data: WebSocketIncomingMessage) => {
     switch (data.event) {
@@ -102,15 +125,20 @@ export default function ChatsIndividualPage() {
         const cleandedSendAt =
           typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            messageId: messageId,
-            messageSenderId: senderId,
-            messageContents: message,
-            messageSendAt: cleandedSendAt,
-          },
-        ]);
+        setMessages((prev) => {
+          const alreadyExists = prev.some((msg) => msg.messageId === messageId);
+          if (alreadyExists) return prev;
+
+          return [
+            ...prev,
+            {
+              messageId,
+              messageSenderId: senderId,
+              messageContents: message,
+              messageSendAt: cleandedSendAt,
+            },
+          ];
+        });
         break;
     }
   };
@@ -163,10 +191,14 @@ export default function ChatsIndividualPage() {
   const partner = data?.pages?.[0]?.data;
   const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
   const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
+    if (inView && hasNextPage && !isFetchingRef.current) {
+      isFetchingRef.current = true;
+      fetchNextPage().finally(() => {
+        isFetchingRef.current = false;
+      });
     }
   }, [inView, hasNextPage, fetchNextPage]);
 
