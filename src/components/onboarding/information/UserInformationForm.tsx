@@ -7,16 +7,17 @@ import toast from 'react-hot-toast';
 import type { AxiosError } from 'axios';
 
 import ProfileImageSelector from '@components/onboarding/information/ProfileImageSelector';
-// import EmailInputSection from '@components/onboarding/information/EmailInputSection';
+import InvitationCodeInputSection from '@/components/onboarding/information/InvitationCodeInputSection';
 import GenderSelectGroup from '@components/onboarding/information/GenderSelectGroup';
 import RandomNicknameButton from '@components/onboarding/information/RandomNicknameButton';
 import OneLineIntroductionInput from '@components/onboarding/information/OneLineIntroductionInput';
-// import MatchingAgreementToggleGroup from '@components/onboarding/information/MatchingAgreementToggleGroup';
+import MatchingAgreementToggleGroup from '@components/onboarding/information/MatchingAgreementToggleGroup';
 import AgeGroupSelector from './AgeGroupSelector';
 import { postRegisterUserInfo } from '@/lib/api/onboarding';
 import { registerUserSchema } from '@/lib/schema/onboardingValidation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+
 interface UserInformationFormProps {
   providerId: string;
 }
@@ -38,6 +39,9 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
       gender: undefined,
       oneLineIntroduction: '',
       isTest: false,
+      friendAllowed: false,
+      coupleAllowed: false,
+      invitationCode: undefined,
     },
   });
 
@@ -76,12 +80,12 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
     <FormProvider {...methods}>
       <form className="w-full space-y-10 overflow-x-hidden" onSubmit={handleSubmit}>
         <ProfileImageSelector />
-        {/* <EmailInputSection onVerify={handleVerify} isVerified={isEmailVerified} /> */}
+        <InvitationCodeInputSection />
         <GenderSelectGroup />
         <AgeGroupSelector />
         <RandomNicknameButton />
         <OneLineIntroductionInput />
-        {/* <MatchingAgreementToggleGroup /> */}
+        <MatchingAgreementToggleGroup />
         <div className="mt-4 flex justify-center">
           <Button
             type="submit"

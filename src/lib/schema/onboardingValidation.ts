@@ -20,6 +20,15 @@ export const registerUserSchema = z.object({
       message: '최소 10자 이상 작성해주세요.',
     }),
   isTest: z.boolean(),
+  friendAllowed: z.boolean(),
+  coupleAllowed: z.boolean(),
+  invitationCode: z
+    .number({
+      required_error: '초대 코드를 입력해주세요.',
+      invalid_type_error: '숫자만 입력 가능합니다.',
+    })
+    .min(1000, { message: '4자리 숫자 코드를 입력해주세요.' })
+    .max(9999, { message: '4자리 숫자 코드를 입력해주세요.' }),
 });
 
 export const preferenceSchema = z.object({
