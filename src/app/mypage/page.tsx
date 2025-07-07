@@ -57,7 +57,7 @@ export default function MyPage() {
     };
 
     fetchUserInfo();
-  }, [userInfo]);
+  }, [userId]);
 
   if (!userInfo) {
     return <LoadingSpinner />;
