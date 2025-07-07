@@ -30,6 +30,9 @@ export interface RegisterUserRequest {
   gender: 'MALE' | 'FEMALE';
   oneLineIntroduction: string;
   isTest: boolean;
+  friendAllowed: boolean;
+  coupleAllowed: boolean;
+  invitationCode: Number;
 }
 
 interface RegisterUserResponse {
@@ -44,7 +47,7 @@ interface RegisterUserResponse {
 export const postRegisterUserInfo = async (
   payload: RegisterUserRequest,
 ): Promise<RegisterUserResponse> => {
-  const response = await axiosInstance.post(`${BASE_URL}/v1/users`, payload);
+  const response = await axiosInstance.post(`${BASE_URL}/v3/users`, payload);
   return response.data;
 };
 
