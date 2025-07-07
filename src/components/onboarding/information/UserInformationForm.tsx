@@ -29,6 +29,7 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
 
   const methods = useForm<RegisterUserForm>({
     resolver: zodResolver(registerUserSchema),
+    mode: 'onChange',
     defaultValues: {
       providerId,
       provider: 'KAKAO',
@@ -44,6 +45,10 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
       invitationCode: undefined,
     },
   });
+
+  const {
+    formState: { isValid },
+  } = methods;
 
   const handleSubmit = methods.handleSubmit(async (data) => {
     try {
@@ -71,6 +76,11 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
         return;
       }
 
+      if (code === 'WRONG_INVITATION_CODE') {
+        toast.error('유효하지 않은 초대코드입니다. 다시 입력해주세요.');
+        return;
+      }
+
       toast.error('문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
       router.replace('/login');
     }
@@ -89,6 +99,7 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
         <div className="mt-4 flex justify-center">
           <Button
             type="submit"
+            disabled={!isValid}
             className="mt-8 mb-4 w-full rounded-[8] bg-[var(--gray-400)] px-4 py-4 text-center text-sm font-semibold text-white"
           >
             다음으로
