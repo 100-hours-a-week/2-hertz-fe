@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import KeywordTagGroup from '@/components/matching/individual/KeywordTagGroup';
 import UserProfileCard from '@/components/mypage/UserProfileCard';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
-import { getUserInfo, GetUserInfoResponse } from '@/lib/api/user';
+import { getUserInfo, GetUserInfoResponse, patchUserIntroduction } from '@/lib/api/user';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { deleteLogout } from '@/lib/api/auth';
 import { useRouter } from 'next/navigation';
@@ -40,12 +40,11 @@ export default function MyPage() {
   };
 
   const openModal = useConfirmModalStore((state) => state.openModal);
+  const userId = localStorage.getItem('userId');
 
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const userId = localStorage.getItem('userId');
-
         if (!userId) {
           console.error('userId가 없습니다.');
           return;
@@ -58,7 +57,7 @@ export default function MyPage() {
     };
 
     fetchUserInfo();
-  }, []);
+  }, [userInfo]);
 
   if (!userInfo) {
     return <LoadingSpinner />;
@@ -67,7 +66,7 @@ export default function MyPage() {
   return (
     <>
       <Header title="마이페이지" showBackButton={false} showNotificationButton={true} />
-      <main className="pb-[calc(3.5rem + env(safe-area-inset-bottom))] flex-1 flex-col overflow-y-hidden px-4 pt-4">
+      <main className="pb-[calc(3.5rem + env(safe-area-inset-bottom))] min-h-screen flex-1 flex-col overflow-y-hidden px-4 pt-4">
         <div className="flex w-full flex-grow flex-col justify-between rounded-3xl px-5 py-4">
           <div className="space-y-4">
             <UserProfileCard
@@ -75,6 +74,16 @@ export default function MyPage() {
               nickname={userInfo.nickname}
               oneLineIntroduction={userInfo.oneLineIntroduction}
               gender={userInfo.gender}
+              onSaveIntroduction={async (newIntro) => {
+                if (!userId) return;
+
+                const response = await patchUserIntroduction(userId, newIntro);
+                if (response.code === 'PROFILE_UPDATED_SUCCESSFULLY') {
+                  toast.success('한 줄 소개가 수정되었습니다', {
+                    id: 'update-introduction-success',
+                  });
+                }
+              }}
             />
             <KeywordTagGroup
               keywords={userInfo.keywords}
