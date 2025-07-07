@@ -9,7 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
@@ -62,7 +62,6 @@ export default function ChatsIndividualPage() {
   };
 
   const myUserIdRef = useRef<number | null>(null);
-  const hasScrolledRef = useRef(false);
   const hasScrolledToBottomRef = useRef(false);
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
@@ -71,14 +70,9 @@ export default function ChatsIndividualPage() {
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
         const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
-
-        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM') {
+        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
           throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
-        }
-        if (response.code === 'USER_DEACTIVATED') {
-          throw new Error('USER_DEACTIVATED');
-        }
-
+        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
         return response;
       },
       getNextPageParam: (lastPage) => {
@@ -89,11 +83,55 @@ export default function ChatsIndividualPage() {
       enabled: isChannelRoomIdValid,
     });
 
+  const handleSocketMessage = (data: WebSocketIncomingMessage) => {
+    switch (data.event) {
+      case 'init_user':
+        myUserIdRef.current = data.data;
+        break;
+      case 'receive_message': {
+        const { messageId, senderId, roomId, message, sendAt } = data.data;
+        const isMine = senderId === myUserIdRef.current;
+        if (!isMine) sendMarkAsRead({ roomId });
+        const cleanedSendAt =
+          typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
+
+        setMessages((prev) => {
+          const alreadyExists = prev.some((msg) => msg.messageId === messageId);
+          if (alreadyExists) return prev;
+          return [
+            ...prev,
+            {
+              messageId,
+              messageSenderId: senderId,
+              messageContents: message,
+              messageSendAt: cleanedSendAt,
+            },
+          ];
+        });
+        break;
+      }
+    }
+  };
+
+  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
+    channelRoomId: parsedChannelRoomId,
+    onMessage: handleSocketMessage,
+  });
+
   useEffect(() => {
-    const fetchAllPagesThenScroll = async () => {
+    console.log('[DEBUG] sendSocketMessage:', sendSocketMessage);
+  }, [sendSocketMessage]);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    const initMessages = async () => {
       if (!data || hasScrolledToBottomRef.current) return;
 
       let currentData = data;
+
       while (currentData && !currentData.pages.at(-1)?.data.messages.pageable.isLast) {
         const next = await fetchNextPage();
         if (!next.data) break;
@@ -102,73 +140,22 @@ export default function ChatsIndividualPage() {
 
       const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
       setMessages(allMessages);
+
       scrollToBottom();
       hasScrolledToBottomRef.current = true;
     };
 
-    if (data && !hasScrolledToBottomRef.current) {
-      fetchAllPagesThenScroll();
-    }
-  }, [data, fetchNextPage]);
+    initMessages();
+  }, [data, fetchNextPage, scrollToBottom]);
 
-  const handleSocketMessage = (data: WebSocketIncomingMessage) => {
-    switch (data.event) {
-      case 'init_user':
-        myUserIdRef.current = data.data;
-        break;
-      case 'receive_message':
-        const { messageId, senderId, roomId, message, sendAt } = data.data;
-
-        const isMine = senderId === myUserIdRef.current;
-        if (!isMine) sendMarkAsRead({ roomId });
-
-        const cleandedSendAt =
-          typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
-
-        setMessages((prev) => {
-          const alreadyExists = prev.some((msg) => msg.messageId === messageId);
-          if (alreadyExists) return prev;
-
-          return [
-            ...prev,
-            {
-              messageId,
-              messageSenderId: senderId,
-              messageContents: message,
-              messageSendAt: cleandedSendAt,
-            },
-          ];
-        });
-        break;
-    }
-  };
-
-  useEffect(() => {
-    if (data && !hasScrolledRef.current) {
-      const allMessages = data.pages.flatMap((page) => page.data.messages.list);
-      setMessages(allMessages);
-      hasScrolledRef.current = true;
-    }
-  }, [data]);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (messages.length > 0) {
-      const timeout = setTimeout(() => {
-        scrollToBottom();
-      }, 0);
+      const timeout = setTimeout(() => scrollToBottom(), 0);
       return () => clearTimeout(timeout);
     }
-  }, [messages]);
-
-  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
-    channelRoomId: parsedChannelRoomId,
-    onMessage: handleSocketMessage,
-  });
-
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     if (isError && error instanceof Error) {
@@ -186,7 +173,7 @@ export default function ChatsIndividualPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [data?.pages]);
+  }, [data?.pages, scrollToBottom]);
 
   const partner = data?.pages?.[0]?.data;
   const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
@@ -218,11 +205,7 @@ export default function ChatsIndividualPage() {
       toast.error('상대방 정보가 없습니다.');
       return;
     }
-
     const sendAt = new Date().toISOString();
-
-    // Optimistic UI
-    // 1️⃣ 먼저 화면에 임시 메시지를 띄움
     setMessages((prev) => [
       ...prev,
       {
@@ -232,9 +215,7 @@ export default function ChatsIndividualPage() {
         messageSendAt: sendAt,
       },
     ]);
-
     try {
-      // 2️⃣ 서버로 소켓 메시지 전송
       sendSocketMessage({
         roomId: parsedChannelRoomId,
         receiverUserId: partner.partnerId,
@@ -244,7 +225,6 @@ export default function ChatsIndividualPage() {
     } catch (e) {
       toast.error('메세지 전송에 실패했어요');
     }
-
     onSuccess();
   };
 
@@ -267,7 +247,6 @@ export default function ChatsIndividualPage() {
             const currentDate = formatKoreanDate(msg.messageSendAt);
             const prevDate = index > 0 ? formatKoreanDate(messages[index - 1].messageSendAt) : null;
             const isNewDate = currentDate !== prevDate;
-
             return (
               <div key={msg.messageId} ref={index === messages.length - 1 ? scrollRef : null}>
                 {isNewDate && (
@@ -297,20 +276,20 @@ export default function ChatsIndividualPage() {
           <div ref={bottomRef} />
         </div>
       </main>
-      {isUnmatched ? (
-        <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
-          <UnavailableChannelBanner />
-          <ChatSignalInputBox
-            onSend={handleSend}
-            disabled={true}
-            placeholder="더 이상 메세지를 보낼 수 없습니다"
-          />
-        </div>
-      ) : (
-        <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
+      <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
+        {isUnmatched ? (
+          <>
+            <UnavailableChannelBanner />
+            <ChatSignalInputBox
+              onSend={handleSend}
+              disabled={true}
+              placeholder="더 이상 메세지를 보낼 수 없습니다"
+            />
+          </>
+        ) : (
           <ChatSignalInputBox onSend={handleSend} placeholder="메세지를 입력해주세요" />
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }
