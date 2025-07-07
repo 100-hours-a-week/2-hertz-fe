@@ -32,7 +32,7 @@ export interface RegisterUserRequest {
   isTest: boolean;
   friendAllowed: boolean;
   coupleAllowed: boolean;
-  invitationCode: Number;
+  invitationCode: number;
 }
 
 interface RegisterUserResponse {

@@ -71,7 +71,7 @@ export default function OnboardingInformationWrapper() {
   return (
     <>
       {isNewUser && providerId && (
-        <div className="flex h-screen flex-1 flex-col">
+        <div className="h-f flex flex-1 flex-col">
           <Header title="개인정보 입력" showBackButton={true} showNotificationButton={false} />
           <main className="flex-grow overflow-y-auto p-4">
             <UserInformationForm providerId={providerId} />

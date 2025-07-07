@@ -66,7 +66,7 @@ export default function MyPage() {
   return (
     <>
       <Header title="마이페이지" showBackButton={false} showNotificationButton={true} />
-      <main className="pb-[calc(3.5rem + env(safe-area-inset-bottom))] min-h-screen flex-1 flex-col overflow-y-hidden px-4 pt-4">
+      <main className="flex-1 overflow-y-auto px-4 pt-4">
         <div className="flex w-full flex-grow flex-col justify-between rounded-3xl px-5 py-4">
           <div className="space-y-4">
             <UserProfileCard

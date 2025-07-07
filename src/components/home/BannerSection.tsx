@@ -33,7 +33,7 @@ export default function BannerSection() {
 
   return (
     <div className="mx-auto w-full max-w-md">
-      <div className="relative aspect-square overflow-hidden rounded-lg" ref={emblaRef}>
+      <div className="relative aspect-[3/2] overflow-hidden rounded-lg" ref={emblaRef}>
         <div className="flex h-full">
           {bannerImages.map((src, index) => (
             <div className="h-full min-w-full flex-shrink-0" key={index}>

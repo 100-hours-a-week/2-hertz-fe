@@ -96,8 +96,14 @@ export default function ChatsIndividualPage() {
           typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
         setMessages((prev) => {
-          const alreadyExists = prev.some((msg) => msg.messageId === messageId);
+          const alreadyExists = prev.some(
+            (msg) =>
+              msg.messageSenderId === senderId &&
+              msg.messageContents === message &&
+              msg.messageSendAt === cleanedSendAt,
+          );
           if (alreadyExists) return prev;
+
           return [
             ...prev,
             {
@@ -205,16 +211,9 @@ export default function ChatsIndividualPage() {
       toast.error('상대방 정보가 없습니다.');
       return;
     }
+
     const sendAt = new Date().toISOString();
-    setMessages((prev) => [
-      ...prev,
-      {
-        messageId: Date.now(),
-        messageSenderId: myUserIdRef.current!,
-        messageContents: message,
-        messageSendAt: sendAt,
-      },
-    ]);
+
     try {
       sendSocketMessage({
         roomId: parsedChannelRoomId,
@@ -225,6 +224,7 @@ export default function ChatsIndividualPage() {
     } catch (e) {
       toast.error('메세지 전송에 실패했어요');
     }
+
     onSuccess();
   };
 
