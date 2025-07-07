@@ -24,7 +24,7 @@ export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
   }, [onMessage]);
 
   useEffect(() => {
-    const socket = io('https://dev.hertz-tuning.com', {
+    const socket = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL, {
       transports: ['websocket'],
       withCredentials: true,
       path: '/socket.io',
