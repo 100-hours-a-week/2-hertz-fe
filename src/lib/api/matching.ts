@@ -48,8 +48,12 @@ export interface GetTuningUserResponse {
   data: TuningUser;
 }
 
-export const getTuningUser = async (): Promise<GetTuningUserResponse> => {
-  const response = await axiosInstance.get<GetTuningUserResponse>(`${BASE_URL}/v1/tuning`);
+export const getTuningUser = async (
+  category: 'friend' | 'couple',
+): Promise<GetTuningUserResponse> => {
+  const response = await axiosInstance.get<GetTuningUserResponse>(
+    `${BASE_URL}/v3/tuning?category=${category}`,
+  );
   return response.data;
 };
 

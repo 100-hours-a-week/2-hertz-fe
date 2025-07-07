@@ -10,15 +10,20 @@ import Loading from './loading';
 import { useTuningStore } from '@/stores/matching/useTuningStore';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'next/navigation';
 
 export default function IndividualMatchingPage() {
   const queryClient = useQueryClient();
   const setReceiverUserId = useTuningStore((state) => state.setReceiverUserId);
   const [resetInput, setResetInput] = useState(false);
 
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
+  const category = categoryParam === 'couple' ? 'couple' : 'friend';
+
   const { data, isLoading } = useQuery({
-    queryKey: ['tuningUser'],
-    queryFn: getTuningUser,
+    queryKey: ['tuningUser', category],
+    queryFn: () => getTuningUser(category),
   });
 
   const matchedUser = data?.data;
