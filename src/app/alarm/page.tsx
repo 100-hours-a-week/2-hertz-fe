@@ -87,6 +87,28 @@ export default function AlarmPage() {
                   </div>
                 </div>
               );
+            }
+            if (alarm.type === 'ALERT') {
+              return (
+                <div
+                  key={index}
+                  className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
+                >
+                  <div className="mt-1 mb-1 flex items-center justify-between">
+                    <span className="flex-shrink-0 rounded-2xl bg-[var(--light-blue)] px-2.5 py-1 text-xs font-semibold text-[var(--dark-blue)]">
+                      경고
+                    </span>
+                    <span className="text-xs text-[var(--gray-300)]">
+                      {dayjs(alarm.createdDate).fromNow()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 text-left text-sm font-medium">
+                    <div className="flex flex-col gap-1 px-1">
+                      <span className="text-black">🚨 {alarm.title}</span>
+                    </div>
+                  </div>
+                </div>
+              );
             } else if (alarm.type === 'MATCHING') {
               const roomId = alarm.channelRoomId;
               return (
