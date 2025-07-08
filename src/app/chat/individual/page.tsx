@@ -74,6 +74,7 @@ export default function ChannelsIndividualPage() {
                           : 'bg-[var(--gray-100)] text-[var(--blue)]'
                       }`}
                     >
+                      {room.category === 'FRIEND' ? '친구 / ' : '연인 / '}
                       {room.relationType === 'MATCHING' ? '매칭' : '시그널'}
                     </span>
                     <span className="text-sm font-semibold text-ellipsis">
