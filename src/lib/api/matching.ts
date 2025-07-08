@@ -96,3 +96,18 @@ export const postMatchingReject = async (payload: MatchingRequest): Promise<Matc
   const response = await axiosInstance.post(`${BASE_URL}/v2/matching/rejections`, payload);
   return response.data;
 };
+
+export const patchUserCategory = async ({
+  flag,
+  category,
+}: {
+  flag: boolean;
+  category: 'FRIEND' | 'COUPLE';
+}) => {
+  const response = await axiosInstance.patch(`${BASE_URL}/v3/users/category`, {
+    flag,
+    category,
+  });
+
+  return response.data;
+};

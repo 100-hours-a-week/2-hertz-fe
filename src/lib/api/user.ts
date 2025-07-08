@@ -37,11 +37,13 @@ export interface GetUserInfoResponse {
       selfDevelopment: string[];
       hobbies: string[];
     };
+    friendAllowed: boolean;
+    coupleAllowed: boolean;
   };
 }
 
 export const getUserInfo = async (userId: string): Promise<GetUserInfoResponse> => {
-  const response = await axiosInstance.get<GetUserInfoResponse>(`${BASE_URL}/v2/users/${userId}`);
+  const response = await axiosInstance.get<GetUserInfoResponse>(`${BASE_URL}/v3/users/${userId}`);
   return response.data;
 };
 
