@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useRef } from 'react';
 
 interface ReceiverMessageProps {
   nickname: string;
@@ -12,6 +13,7 @@ interface ReceiverMessageProps {
   sentAt: string;
   partnerId: number;
   relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
+  onLongPress?: () => void;
 }
 
 export default function ReceiverMessage({
@@ -21,8 +23,32 @@ export default function ReceiverMessage({
   sentAt,
   partnerId,
   relationType,
+  onLongPress,
 }: ReceiverMessageProps) {
   const router = useRouter();
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleProfileClick = () => {
+    router.push(`/profile/${partnerId}`);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onLongPress?.();
+  };
+
+  const handleTouchStart = () => {
+    longPressTimerRef.current = setTimeout(() => {
+      onLongPress?.();
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   const getSafeImageSrc = (src: string) => {
     if (!src || src.trim() === '') return '/images/default-profile.png';
@@ -31,10 +57,6 @@ export default function ReceiverMessage({
     const cleaned = src.replace(/^(\.\/|\.\.\/)+/, '');
 
     return `/${cleaned}`;
-  };
-
-  const handleProfileClick = () => {
-    router.push(`/profile/${partnerId}`);
   };
 
   return (
@@ -60,7 +82,12 @@ export default function ReceiverMessage({
         </div>
       </div>
 
-      <div>
+      <div
+        onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
         <p className="mt-1 text-sm font-semibold text-[var(--gray-400)]">{nickname}</p>
         <div className="mt-1.5 flex pr-4">
           <div className="flex max-w-[16rem] items-end gap-2">

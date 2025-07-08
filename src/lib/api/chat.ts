@@ -114,3 +114,22 @@ export const deleteChannelRoom = async (channelRoomId: number): Promise<DeleteCh
   const response = await axiosInstance.delete(`/v2/channel-rooms/${channelRoomId}`);
   return response.data;
 };
+
+export interface PostReportMessagesRequest {
+  messageId: number;
+  messageContent: string;
+  reportedUserId: number;
+}
+
+export interface PostReportMessagesResponse {
+  code: string;
+  message: string;
+  data: null;
+}
+
+export const postReportMessage = async (
+  payload: PostReportMessagesRequest,
+): Promise<PostReportMessagesResponse> => {
+  const response = await axiosInstance.post(`/v3/reports`, payload);
+  return response.data;
+};

@@ -4,7 +4,12 @@ import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
 import ChatSignalInputBox from '@/components/chat/common/ChatSignalInputBox';
-import { ChannelRoomDetailResponse, deleteChannelRoom, getChannelRoomDetail } from '@/lib/api/chat';
+import {
+  ChannelRoomDetailResponse,
+  deleteChannelRoom,
+  getChannelRoomDetail,
+  postReportMessage,
+} from '@/lib/api/chat';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
@@ -17,6 +22,7 @@ import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 import { WebSocketIncomingMessage } from '@/types/WebSocketType';
 import { useSocketIO } from '@/hooks/useSocketIO';
+import { AxiosError } from 'axios';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -36,6 +42,46 @@ export default function ChatsIndividualPage() {
     channelRoomId: waitingModalChannelId,
     openModal,
   } = useWaitingModalStore();
+
+  const handleReport = ({
+    messageId,
+    messageContent,
+    reportedUserId,
+  }: {
+    messageId: number;
+    messageContent: string;
+    reportedUserId: number;
+  }) => {
+    useConfirmModalStore.getState().openModal({
+      title: '부적절한 메시지로 신고하시겠어요?',
+      description:
+        '신고 내용은 운영진에게 전달되며, 신고된 메시지는 운영 정책에 따라 검토 후 조치됩니다.',
+      confirmText: '신고하기',
+      cancelText: '취소',
+      variant: 'confirm',
+      onConfirm: async () => {
+        try {
+          await postReportMessage({
+            messageId,
+            messageContent,
+            reportedUserId,
+          });
+          toast.success('신고가 정상적으로 접수되었습니다.');
+        } catch (error: unknown) {
+          if (error instanceof AxiosError && error.response?.data?.code === 'USER_DEACTIVATED') {
+            toast.error('상대방이 탈퇴한 사용자입니다.');
+          } else {
+            toast.error('신고 처리 중 오류가 발생했습니다.');
+          }
+        } finally {
+          useConfirmModalStore.getState().closeModal();
+        }
+      },
+      onCancel: () => {
+        useConfirmModalStore.getState().closeModal();
+      },
+    });
+  };
 
   const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
     useConfirmModalStore.getState().openModal({
@@ -262,6 +308,15 @@ export default function ChatsIndividualPage() {
                     sentAt={msg.messageSendAt}
                     partnerId={partner?.partnerId ?? null}
                     relationType={partner?.relationType ?? null}
+                    onLongPress={() => {
+                      if (!msg.messageId || !msg.messageSenderId) return;
+
+                      handleReport({
+                        messageId: msg.messageId,
+                        messageContent: msg.messageContents,
+                        reportedUserId: msg.messageSenderId,
+                      });
+                    }}
                   />
                 ) : (
                   <SenderMessage
