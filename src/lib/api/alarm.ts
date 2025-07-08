@@ -2,7 +2,7 @@ import { ChannelRoom } from './chat';
 import axiosInstance from '../axios';
 
 export interface AlarmList {
-  type: 'NOTICE' | 'REPORT' | 'MATCHING';
+  type: 'NOTICE' | 'REPORT' | 'MATCHING' | 'ALERT';
   title: string;
   content?: string;
   channelRoomId?: number;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTuningStore } from '@/stores/matching/useTuningStore';
 import { postTuningSignal } from '@/lib/api/matching';
 import axios from 'axios';
@@ -25,6 +25,9 @@ export default function MatchingSignalInputBox({
   const receiverUserId = useTuningStore((state) => state.receiverUserId);
   const router = useRouter();
   const [isSending, setIsSending] = useState(false);
+  const searchParams = useSearchParams();
+  const rawCategory = searchParams.get('category');
+  const category = rawCategory?.toUpperCase() as 'FRIEND' | 'COUPLE';
 
   useEffect(() => {
     if (reset) {
@@ -41,7 +44,7 @@ export default function MatchingSignalInputBox({
 
     try {
       setIsSending(true);
-      const res = await postTuningSignal({ receiverUserId, message });
+      const res = await postTuningSignal({ receiverUserId, message, category });
       toast.success('시그널을 성공적으로 보냈습니다!');
       setValue('');
 

@@ -60,6 +60,7 @@ export const getTuningUser = async (
 export interface TuningSignalRequest {
   receiverUserId: number;
   message: string;
+  category: 'FRIEND' | 'COUPLE';
 }
 
 export interface TuningSignalResponse {
@@ -71,7 +72,7 @@ export interface TuningSignalResponse {
 export const postTuningSignal = async (
   payload: TuningSignalRequest,
 ): Promise<TuningSignalResponse> => {
-  const response = await axiosInstance.post(`${BASE_URL}/v1/tuning/signal`, payload);
+  const response = await axiosInstance.post(`${BASE_URL}/v3/tuning/signal`, payload);
   return response.data;
 };
 
@@ -94,5 +95,20 @@ export const postMatchingAccept = async (payload: MatchingRequest): Promise<Matc
 // 거절 API
 export const postMatchingReject = async (payload: MatchingRequest): Promise<MatchingResponse> => {
   const response = await axiosInstance.post(`${BASE_URL}/v2/matching/rejections`, payload);
+  return response.data;
+};
+
+export const patchUserCategory = async ({
+  flag,
+  category,
+}: {
+  flag: boolean;
+  category: 'FRIEND' | 'COUPLE';
+}) => {
+  const response = await axiosInstance.patch(`${BASE_URL}/v3/users/category`, {
+    flag,
+    category,
+  });
+
   return response.data;
 };

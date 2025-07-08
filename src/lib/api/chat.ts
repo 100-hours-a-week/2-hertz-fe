@@ -7,6 +7,7 @@ export interface ChannelRoom {
   partnerNickname: string;
   lastMessage: string;
   lastMessageTime: string;
+  category: 'FRIEND' | 'COUPLE';
   isRead: boolean;
   relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
 }
@@ -23,7 +24,7 @@ export interface GetChannelRoomListResponse {
 }
 
 export const getChannelRooms = async (page = 0, size = 10): Promise<GetChannelRoomListResponse> => {
-  const response = await axiosInstance.get(`/v1/channel?page=${page}&size=${size}`);
+  const response = await axiosInstance.get(`/v3/channel?page=${page}&size=${size}`);
   return response.data;
 };
 
