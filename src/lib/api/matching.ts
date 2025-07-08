@@ -60,6 +60,7 @@ export const getTuningUser = async (
 export interface TuningSignalRequest {
   receiverUserId: number;
   message: string;
+  category: 'FRIEND' | 'COUPLE';
 }
 
 export interface TuningSignalResponse {
@@ -71,7 +72,7 @@ export interface TuningSignalResponse {
 export const postTuningSignal = async (
   payload: TuningSignalRequest,
 ): Promise<TuningSignalResponse> => {
-  const response = await axiosInstance.post(`${BASE_URL}/v1/tuning/signal`, payload);
+  const response = await axiosInstance.post(`${BASE_URL}/v3/tuning/signal`, payload);
   return response.data;
 };
 
