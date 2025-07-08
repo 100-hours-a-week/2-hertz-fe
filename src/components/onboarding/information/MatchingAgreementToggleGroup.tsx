@@ -27,7 +27,7 @@ export default function MatchingAgreementToggleGroup() {
 
       <div className="mt-4 flex items-center justify-center gap-8">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-black">🙆🏻‍♂️ 친구</p>
+          <p className="text-sm font-medium text-black">친구</p>
           <Controller
             name="friendAllowed"
             control={control}
@@ -38,7 +38,7 @@ export default function MatchingAgreementToggleGroup() {
         </div>
 
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-black">💗 연인</p>
+          <p className="text-sm font-medium text-black">연인</p>
           <Controller
             name="coupleAllowed"
             control={control}
