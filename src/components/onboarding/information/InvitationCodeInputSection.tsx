@@ -20,9 +20,6 @@ export default function InvitationCodeInputSection({ onVerified }: { onVerified:
 
   const handleVerify = async () => {
     const codeStr = String(code);
-    setIsVerified(true);
-    clearErrors('invitationCode');
-    onVerified();
 
     if (!/^\d{4}$/.test(String(code))) {
       setError('invitationCode', {
@@ -50,6 +47,7 @@ export default function InvitationCodeInputSection({ onVerified }: { onVerified:
 
     setIsVerified(true);
     clearErrors('invitationCode');
+    onVerified();
   };
 
   return (
@@ -68,7 +66,7 @@ export default function InvitationCodeInputSection({ onVerified }: { onVerified:
         <Button
           type="button"
           onClick={handleVerify}
-          disabled={isVerified}
+          disabled={isVerified || !code}
           className={`h-11 rounded-[6px] px-4 text-sm transition-colors duration-200 ${
             isVerified
               ? 'bg-[var(--gray-200)] text-black'

@@ -3,6 +3,8 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { Switch } from '@/components/ui/switch';
 import { usePathname } from 'next/navigation';
+import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 
 export default function MatchingAgreementToggleGroup() {
   const pathname = usePathname();
@@ -12,6 +14,14 @@ export default function MatchingAgreementToggleGroup() {
     control,
     formState: { errors },
   } = useFormContext();
+
+  useEffect(() => {
+    if (errors.friendAllowed || errors.coupleAllowed) {
+      toast.error('친구 또는 연인 중 하나 이상은 선택되어야 합니다.', {
+        id: 'matching-toggle-disabled',
+      });
+    }
+  }, [errors.friendAllowed, errors.coupleAllowed]);
 
   return (
     <section className="px-2">
@@ -48,12 +58,6 @@ export default function MatchingAgreementToggleGroup() {
           />
         </div>
       </div>
-
-      {(errors.friendAllowed || errors.coupleAllowed) && (
-        <p className="text-center text-xs text-[var(--pink)]">
-          친구 또는 연인 중 하나 이상은 선택되어야 합니다.
-        </p>
-      )}
     </section>
   );
 }
