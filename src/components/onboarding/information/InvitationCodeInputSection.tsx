@@ -24,7 +24,7 @@ export default function InvitationCodeInputSection() {
     if (!/^\d{4}$/.test(String(code))) {
       setError('invitationCode', {
         type: 'manual',
-        message: '초대코드는 4자리 숫자여야 해요.',
+        message: '초대코드는 4자리 숫자로 작성해주세요.',
       });
       return;
     }
@@ -57,6 +57,7 @@ export default function InvitationCodeInputSection() {
         <Input
           type="text"
           maxLength={4}
+          disabled={isVerified}
           placeholder="1234"
           {...register('invitationCode', { valueAsNumber: true })}
           className="h-11 flex-1 rounded-[6px] border-none bg-[var(--gray-100)] text-sm"
