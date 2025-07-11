@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 
-export default function InvitationCodeInputSection() {
+export default function InvitationCodeInputSection({ onVerified }: { onVerified: () => void }) {
   const {
     register,
     watch,
@@ -24,7 +24,7 @@ export default function InvitationCodeInputSection() {
     if (!/^\d{4}$/.test(String(code))) {
       setError('invitationCode', {
         type: 'manual',
-        message: '초대코드는 4자리 숫자여야 해요.',
+        message: '초대코드는 4자리 숫자로 작성해주세요.',
       });
       return;
     }
@@ -47,6 +47,7 @@ export default function InvitationCodeInputSection() {
 
     setIsVerified(true);
     clearErrors('invitationCode');
+    onVerified();
   };
 
   return (
@@ -57,6 +58,7 @@ export default function InvitationCodeInputSection() {
         <Input
           type="text"
           maxLength={4}
+          disabled={isVerified}
           placeholder="1234"
           {...register('invitationCode', { valueAsNumber: true })}
           className="h-11 flex-1 rounded-[6px] border-none bg-[var(--gray-100)] text-sm"
@@ -64,7 +66,7 @@ export default function InvitationCodeInputSection() {
         <Button
           type="button"
           onClick={handleVerify}
-          disabled={isVerified}
+          disabled={isVerified || !code}
           className={`h-11 rounded-[6px] px-4 text-sm transition-colors duration-200 ${
             isVerified
               ? 'bg-[var(--gray-200)] text-black'
