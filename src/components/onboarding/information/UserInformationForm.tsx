@@ -42,8 +42,8 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
       gender: undefined,
       oneLineIntroduction: '',
       isTest: false,
-      friendAllowed: false,
-      coupleAllowed: false,
+      friendAllowed: true,
+      coupleAllowed: true,
       invitationCode: undefined,
     },
   });
