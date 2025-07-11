@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 
-export default function InvitationCodeInputSection() {
+export default function InvitationCodeInputSection({ onVerified }: { onVerified: () => void }) {
   const {
     register,
     watch,
@@ -20,6 +20,9 @@ export default function InvitationCodeInputSection() {
 
   const handleVerify = async () => {
     const codeStr = String(code);
+    setIsVerified(true);
+    clearErrors('invitationCode');
+    onVerified();
 
     if (!/^\d{4}$/.test(String(code))) {
       setError('invitationCode', {

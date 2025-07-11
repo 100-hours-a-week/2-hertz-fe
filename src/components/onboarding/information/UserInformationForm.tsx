@@ -17,6 +17,7 @@ import { postRegisterUserInfo } from '@/lib/api/onboarding';
 import { registerUserSchema } from '@/lib/schema/onboardingValidation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useState } from 'react';
 
 interface UserInformationFormProps {
   providerId: string;
@@ -24,6 +25,7 @@ interface UserInformationFormProps {
 
 export default function UserInformationForm({ providerId }: UserInformationFormProps) {
   const router = useRouter();
+  const [isCodeVerified, setIsCodeVerified] = useState(false);
 
   type RegisterUserForm = z.infer<typeof registerUserSchema>;
 
@@ -90,7 +92,7 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
     <FormProvider {...methods}>
       <form className="w-full space-y-10 overflow-x-hidden" onSubmit={handleSubmit}>
         <ProfileImageSelector />
-        <InvitationCodeInputSection />
+        <InvitationCodeInputSection onVerified={() => setIsCodeVerified(true)} />
         <GenderSelectGroup />
         <AgeGroupSelector />
         <RandomNicknameButton />
@@ -99,7 +101,7 @@ export default function UserInformationForm({ providerId }: UserInformationFormP
         <div className="mt-4 flex justify-center">
           <Button
             type="submit"
-            disabled={!isValid}
+            disabled={!isValid || !isCodeVerified}
             className="mt-8 mb-4 w-full rounded-[8] bg-[var(--gray-400)] px-4 py-4 text-center text-sm font-semibold text-white"
           >
             다음으로
