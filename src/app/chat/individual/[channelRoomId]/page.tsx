@@ -1,47 +1,215 @@
 'use client';
 
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { useInView } from 'react-intersection-observer';
+
 import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
 import ChatSignalInputBox from '@/components/chat/common/ChatSignalInputBox';
-import {
-  ChannelRoomDetailResponse,
-  deleteChannelRoom,
-  getChannelRoomDetail,
-  postReportMessage,
-} from '@/lib/api/chat';
-import { useParams, useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { useInView } from 'react-intersection-observer';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
+
+import {
+  getChannelRoomDetail,
+  deleteChannelRoom,
+  postReportMessage,
+  ChannelRoomDetailResponse,
+} from '@/lib/api/chat';
+import { formatKoreanDate } from '@/utils/format';
+import { useSocketIO } from '@/hooks/useSocketIO';
+import { WebSocketIncomingMessage } from '@/types/WebSocketType';
+import { AxiosError } from 'axios';
+
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
-import { WebSocketIncomingMessage } from '@/types/WebSocketType';
-import { useSocketIO } from '@/hooks/useSocketIO';
-import { AxiosError } from 'axios';
+import { useSSEReconnector } from '@/hooks/useSSEReconnector';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
-  const { ref: scrollRef, inView } = useInView();
-
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
-
   const router = useRouter();
+  const { ref: scrollRef, inView } = useInView();
+
+  const reconnectSSE = useSSEReconnector();
+
+  useEffect(() => {
+    if (isChannelRoomIdValid) {
+      reconnectSSE();
+    }
+  }, [parsedChannelRoomId, reconnectSSE, isChannelRoomIdValid]);
 
   const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
     [],
   );
+  const myUserIdRef = useRef<number | null>(null);
+  const hasScrolledToBottomRef = useRef(false);
+
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
+    useInfiniteQuery<ChannelRoomDetailResponse>({
+      queryKey: ['channelRoom', parsedChannelRoomId],
+      queryFn: async ({ pageParam = 0 }) => {
+        const page = pageParam as number;
+        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
+        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
+          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
+        return response;
+      },
+      getNextPageParam: (lastPage) => {
+        const pagination = lastPage.data.messages.pageable;
+        return pagination.isLast ? undefined : pagination.pageNumber + 1;
+      },
+      initialPageParam: 0,
+      enabled: isChannelRoomIdValid,
+    });
+
+  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
+    channelRoomId: parsedChannelRoomId,
+    onMessage: (data: WebSocketIncomingMessage) => {
+      switch (data.event) {
+        case 'init_user':
+          myUserIdRef.current = data.data;
+          break;
+        case 'receive_message': {
+          const { messageId, senderId, roomId, message, sendAt } = data.data;
+          const isMine = senderId === myUserIdRef.current;
+          if (!isMine) sendMarkAsRead({ roomId });
+          const cleanedSendAt =
+            typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
+
+          setMessages((prev) => {
+            const alreadyExists = prev.some(
+              (msg) =>
+                msg.messageSenderId === senderId &&
+                msg.messageContents === message &&
+                msg.messageSendAt === cleanedSendAt,
+            );
+            if (alreadyExists) return prev;
+
+            return [
+              ...prev,
+              {
+                messageId,
+                messageSenderId: senderId,
+                messageContents: message,
+                messageSendAt: cleanedSendAt,
+              },
+            ];
+          });
+          break;
+        }
+      }
+    },
+  });
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    const initMessages = async () => {
+      if (!data || hasScrolledToBottomRef.current) return;
+      let currentData = data;
+
+      while (currentData && !currentData.pages.at(-1)?.data.messages.pageable.isLast) {
+        const next = await fetchNextPage();
+        if (!next.data) break;
+        currentData = next.data;
+      }
+
+      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
+      setMessages(allMessages);
+      scrollToBottom();
+      hasScrolledToBottomRef.current = true;
+    };
+
+    initMessages();
+  }, [data, fetchNextPage, scrollToBottom]);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const timeout = setTimeout(() => scrollToBottom(), 0);
+      return () => clearTimeout(timeout);
+    }
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      if (error.message === 'ALREADY_EXITED_CHANNEL_ROOM') {
+        toast.error('이미 나간 채팅방입니다.');
+        router.back();
+      } else if (error.message === 'USER_DEACTIVATED') {
+        toast.error('상대방이 탈퇴한 사용자입니다.');
+        router.back();
+      } else {
+        toast.error('채팅방 정보를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+  }, [isError, error, router]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [data?.pages, scrollToBottom]);
+
+  const partner = data?.pages?.[0]?.data;
+  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
+  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+
+  const isFetchingRef = useRef(false);
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingRef.current) {
+      isFetchingRef.current = true;
+      fetchNextPage().finally(() => {
+        isFetchingRef.current = false;
+      });
+    }
+  }, [inView, hasNextPage, fetchNextPage]);
 
   const {
     shouldShowModal,
     channelRoomId: waitingModalChannelId,
     openModal,
   } = useWaitingModalStore();
+
+  useEffect(() => {
+    if (
+      shouldShowModal &&
+      partner?.partnerNickname &&
+      waitingModalChannelId === parsedChannelRoomId &&
+      partner?.relationType !== 'MATCHING'
+    ) {
+      openModal(partner.partnerNickname, parsedChannelRoomId);
+    }
+  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
+
+  const handleSend = (message: string, onSuccess: () => void) => {
+    if (!partner?.partnerId) {
+      toast.error('상대방 정보가 없습니다.');
+      return;
+    }
+
+    const sendAt = new Date().toISOString();
+
+    try {
+      sendSocketMessage({
+        roomId: parsedChannelRoomId,
+        receiverUserId: partner.partnerId,
+        message,
+        sendAt,
+      });
+    } catch (e) {
+      toast.error('메세지 전송에 실패했어요');
+    }
+
+    onSuccess();
+  };
 
   const handleReport = ({
     messageId,
@@ -61,11 +229,7 @@ export default function ChatsIndividualPage() {
       variant: 'confirm',
       onConfirm: async () => {
         try {
-          await postReportMessage({
-            messageId,
-            messageContent,
-            reportedUserId,
-          });
+          await postReportMessage({ messageId, messageContent, reportedUserId });
           toast.success('신고가 정상적으로 접수되었습니다.');
         } catch (error: unknown) {
           if (error instanceof AxiosError && error.response?.data?.code === 'USER_DEACTIVATED') {
@@ -107,173 +271,6 @@ export default function ChatsIndividualPage() {
     });
   };
 
-  const myUserIdRef = useRef<number | null>(null);
-  const hasScrolledToBottomRef = useRef(false);
-
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
-    useInfiniteQuery<ChannelRoomDetailResponse>({
-      queryKey: ['channelRoom', parsedChannelRoomId],
-      queryFn: async ({ pageParam = 0 }) => {
-        const page = pageParam as number;
-        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
-        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
-          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
-        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
-        return response;
-      },
-      getNextPageParam: (lastPage) => {
-        const pagination = lastPage.data.messages.pageable;
-        return pagination.isLast ? undefined : pagination.pageNumber + 1;
-      },
-      initialPageParam: 0,
-      enabled: isChannelRoomIdValid,
-    });
-
-  const handleSocketMessage = (data: WebSocketIncomingMessage) => {
-    switch (data.event) {
-      case 'init_user':
-        myUserIdRef.current = data.data;
-        break;
-      case 'receive_message': {
-        const { messageId, senderId, roomId, message, sendAt } = data.data;
-        const isMine = senderId === myUserIdRef.current;
-        if (!isMine) sendMarkAsRead({ roomId });
-        const cleanedSendAt =
-          typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
-
-        setMessages((prev) => {
-          const alreadyExists = prev.some(
-            (msg) =>
-              msg.messageSenderId === senderId &&
-              msg.messageContents === message &&
-              msg.messageSendAt === cleanedSendAt,
-          );
-          if (alreadyExists) return prev;
-
-          return [
-            ...prev,
-            {
-              messageId,
-              messageSenderId: senderId,
-              messageContents: message,
-              messageSendAt: cleanedSendAt,
-            },
-          ];
-        });
-        break;
-      }
-    }
-  };
-
-  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
-    channelRoomId: parsedChannelRoomId,
-    onMessage: handleSocketMessage,
-  });
-
-  useEffect(() => {
-    console.log('[DEBUG] sendSocketMessage:', sendSocketMessage);
-  }, [sendSocketMessage]);
-
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-
-  useEffect(() => {
-    const initMessages = async () => {
-      if (!data || hasScrolledToBottomRef.current) return;
-
-      let currentData = data;
-
-      while (currentData && !currentData.pages.at(-1)?.data.messages.pageable.isLast) {
-        const next = await fetchNextPage();
-        if (!next.data) break;
-        currentData = next.data;
-      }
-
-      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
-      setMessages(allMessages);
-
-      scrollToBottom();
-      hasScrolledToBottomRef.current = true;
-    };
-
-    initMessages();
-  }, [data, fetchNextPage, scrollToBottom]);
-
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      const timeout = setTimeout(() => scrollToBottom(), 0);
-      return () => clearTimeout(timeout);
-    }
-  }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    if (isError && error instanceof Error) {
-      if (error.message === 'ALREADY_EXITED_CHANNEL_ROOM') {
-        toast.error('이미 나간 채팅방입니다.');
-        router.back();
-      } else if (error.message === 'USER_DEACTIVATED') {
-        toast.error('상대방이 탈퇴한 사용자입니다.');
-        router.back();
-      } else {
-        toast.error('채팅방 정보를 불러오는 중 오류가 발생했습니다.');
-      }
-    }
-  }, [isError, error, router]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [data?.pages, scrollToBottom]);
-
-  const partner = data?.pages?.[0]?.data;
-  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
-  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
-  const isFetchingRef = useRef(false);
-
-  useEffect(() => {
-    if (inView && hasNextPage && !isFetchingRef.current) {
-      isFetchingRef.current = true;
-      fetchNextPage().finally(() => {
-        isFetchingRef.current = false;
-      });
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  useEffect(() => {
-    if (
-      shouldShowModal &&
-      partner?.partnerNickname &&
-      waitingModalChannelId === parsedChannelRoomId &&
-      partner?.relationType !== 'MATCHING'
-    ) {
-      openModal(partner.partnerNickname, parsedChannelRoomId);
-    }
-  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
-
-  const handleSend = (message: string, onSuccess: () => void) => {
-    if (!partner?.partnerId) {
-      toast.error('상대방 정보가 없습니다.');
-      return;
-    }
-
-    const sendAt = new Date().toISOString();
-
-    try {
-      sendSocketMessage({
-        roomId: parsedChannelRoomId,
-        receiverUserId: partner.partnerId,
-        message,
-        sendAt,
-      });
-    } catch (e) {
-      toast.error('메세지 전송에 실패했어요');
-    }
-
-    onSuccess();
-  };
-
   if (!isChannelRoomIdValid) return toast.error('나간 채팅방에 다시 접속할 수 없습니다.');
   if (isLoading)
     return <p className="flex items-center justify-center text-sm font-medium">로딩 중...</p>;
@@ -310,7 +307,6 @@ export default function ChatsIndividualPage() {
                     relationType={partner?.relationType ?? null}
                     onLongPress={() => {
                       if (!msg.messageId || !msg.messageSenderId) return;
-
                       handleReport({
                         messageId: msg.messageId,
                         messageContent: msg.messageContents,
