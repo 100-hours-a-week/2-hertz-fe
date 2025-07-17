@@ -12,6 +12,7 @@ import type { NewMessageType } from '@/types/chat';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { useMatchingConfirmedStore } from '@/stores/matching/useMatchingConfirmedStore';
 import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
+import { AxiosError } from 'axios';
 
 export type MatchingPayload = {
   partnerNickname: string;
@@ -112,8 +113,8 @@ export const getSSEHandlers = ({
               default:
                 toast.error('알 수 없는 응답입니다.');
             }
-          } catch (error: any) {
-            if (error.response?.data?.code === 'USER_DEACTIVATED') {
+          } catch (error) {
+            if (error instanceof AxiosError && error.response?.data?.code === 'USER_DEACTIVATED') {
               toast.error('상대방이 탈퇴한 사용자입니다.');
             } else {
               toast.error('매칭 처리 중 오류가 발생했어요.');
