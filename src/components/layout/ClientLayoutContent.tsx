@@ -44,12 +44,15 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     pathname,
     handleAccept: async (channelRoomId, partnerNickname) => {
       await postMatchingAccept({ channelRoomId });
-      toast.success(`${partnerNickname}님과 매칭되었어요!`);
+      toast.success(`${partnerNickname}님과 매칭이 완료됐어요!`, {
+        icon: '🎉',
+        id: 'matching-success',
+      });
     },
 
     handleReject: async (channelRoomId, partnerNickname) => {
       await postMatchingReject({ channelRoomId });
-      toast('매칭을 거절했어요', { icon: '👋' });
+      toast('매칭을 거절했어요', { icon: '👋', id: 'matching-reject' });
     },
     getChannelRoomIdFromPath: (pathname: string) => {
       const match = pathname.match(/\/chat\/(?:individual|group)\/(\d+)/);

@@ -27,6 +27,7 @@ import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 import { useSSEReconnector } from '@/hooks/useSSEReconnector';
+import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -158,6 +159,8 @@ export default function ChatsIndividualPage() {
     scrollToBottom();
   }, [data?.pages, scrollToBottom]);
 
+  const { getRelationType } = useChannelRoomStore();
+  const relationType = getRelationType(parsedChannelRoomId);
   const partner = data?.pages?.[0]?.data;
   const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
   const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;

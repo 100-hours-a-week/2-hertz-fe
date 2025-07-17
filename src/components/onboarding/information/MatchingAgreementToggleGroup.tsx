@@ -1,10 +1,10 @@
 'use client';
 
 import { Controller, useFormContext } from 'react-hook-form';
-import { Switch } from '@/components/ui/switch';
 import { usePathname } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useEffect } from 'react';
+import CustomSwitch from './CustomSwitch';
 
 export default function MatchingAgreementToggleGroup() {
   const pathname = usePathname();
@@ -41,9 +41,7 @@ export default function MatchingAgreementToggleGroup() {
           <Controller
             name="friendAllowed"
             control={control}
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
-            )}
+            render={({ field }) => <CustomSwitch checked={field.value} onChange={field.onChange} />}
           />
         </div>
 
@@ -52,9 +50,7 @@ export default function MatchingAgreementToggleGroup() {
           <Controller
             name="coupleAllowed"
             control={control}
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
-            )}
+            render={({ field }) => <CustomSwitch checked={field.value} onChange={field.onChange} />}
           />
         </div>
       </div>
