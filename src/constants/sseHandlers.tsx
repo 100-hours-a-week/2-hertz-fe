@@ -9,8 +9,9 @@ import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import type { NewMessageType } from '@/types/chat';
-import { postMatchingAccept } from '@/lib/api/matching';
+import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { useMatchingConfirmedStore } from '@/stores/matching/useMatchingConfirmedStore';
+import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
 
 export type MatchingPayload = {
   partnerNickname: string;
@@ -99,6 +100,7 @@ export const getSSEHandlers = ({
                 await queryClient.invalidateQueries({
                   queryKey: ['channelRoomDetail', channelRoomId],
                 });
+                useChannelRoomStore.getState().setRelationType(channelRoomId, 'MATCHING');
                 useWaitingModalStore.getState().reset();
                 break;
               case 'MATCH_FAILED':
@@ -120,14 +122,25 @@ export const getSSEHandlers = ({
             confirmModalStore.closeModal();
           }
         },
-        onCancel: () => {
+        onCancel: async () => {
           matchingResponseStore.setHasResponded(true);
-          toast(`${partnerNickname}님과의 매칭을 거절했어요`, {
-            icon: '🙅‍♀️',
-            id: 'matching-reject',
-          });
-          handleReject(channelRoomId, partnerNickname);
           confirmModalStore.closeModal();
+
+          try {
+            const res = await postMatchingReject({ channelRoomId });
+            if (res.code === 'MATCH_REJECTION_SUCCESS') {
+              toast(`${partnerNickname}님과의 매칭을 거절했어요`, {
+                icon: '🙅‍♀️',
+                id: 'matching-reject',
+              });
+              useWaitingModalStore.getState().reset();
+              handleReject(channelRoomId, partnerNickname);
+            } else {
+              toast.error('매칭 거절에 실패했어요.');
+            }
+          } catch (error) {
+            toast.error('매칭 거절 처리 중 오류가 발생했어요.');
+          }
         },
       });
     },
@@ -192,6 +205,7 @@ export const getSSEHandlers = ({
       const { partnerNickname, channelRoomId } = data as MatchingPayload;
       useWaitingModalStore.getState().reset();
       toast.success(`🎉 ${partnerNickname}님과 매칭이 완료됐어요!`, { id: 'matching-success' });
+      useChannelRoomStore.getState().setRelationType(channelRoomId, 'MATCHING');
 
       try {
         await queryClient.invalidateQueries({
