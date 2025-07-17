@@ -45,7 +45,7 @@ export const SSEProvider = ({ children }: { children: React.ReactNode }) => {
       },
       handleReject: async (channelRoomId, partnerNickname) => {
         await postMatchingReject({ channelRoomId });
-        toast('매칭을 거절했어요', { icon: '👋' });
+        toast('매칭을 거절했어요', { icon: '👋', id: 'matching-reject' });
       },
       getChannelRoomIdFromPath: (pathname: string) => {
         const match = pathname.match(/\/chat\/(?:individual|group)\/(\d+)/);

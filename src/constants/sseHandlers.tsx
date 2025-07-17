@@ -122,7 +122,10 @@ export const getSSEHandlers = ({
         },
         onCancel: () => {
           matchingResponseStore.setHasResponded(true);
-          toast(`${partnerNickname}님과의 매칭을 거절했어요`, { icon: '🙅‍♀️' });
+          toast(`${partnerNickname}님과의 매칭을 거절했어요`, {
+            icon: '🙅‍♀️',
+            id: 'matching-reject',
+          });
           handleReject(channelRoomId, partnerNickname);
           confirmModalStore.closeModal();
         },
@@ -171,7 +174,10 @@ export const getSSEHandlers = ({
           },
           onCancel: () => {
             matchingResponseStore.setHasResponded(true);
-            toast(`${partnerNickname}님과의 매칭을 거절했어요`, { icon: '🙅‍♀️' });
+            toast(`${partnerNickname}님과의 매칭을 거절했어요`, {
+              icon: '🙅‍♀️',
+              id: 'matching-reject',
+            });
             handleReject(channelRoomId, partnerNickname);
             confirmModalStore.closeModal();
           },
@@ -199,7 +205,7 @@ export const getSSEHandlers = ({
     'matching-rejection': (data: unknown) => {
       const { partnerNickname } = data as MatchingPayload;
       useWaitingModalStore.getState().reset();
-      toast(`${partnerNickname}님이 매칭을 거절했어요`, { icon: '🥲' });
+      toast(`${partnerNickname}님이 매칭을 거절했어요`, { icon: '🥲', id: 'matching-reject' });
     },
 
     'nav-new-message': () => {
