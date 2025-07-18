@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useLayoutEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -48,13 +48,15 @@ export default function ChatsIndividualPage() {
     [],
   );
   const myUserIdRef = useRef<number | null>(null);
-  const hasScrolledToBottomRef = useRef(false);
 
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page')) || 0;
 
+  const bottomRef = useRef<HTMLDivElement>(null);
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
+      refetchOnMount: true,
       queryKey: ['channelRoom', parsedChannelRoomId],
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
@@ -74,27 +76,29 @@ export default function ChatsIndividualPage() {
 
   useEffect(() => {
     const initMessages = async () => {
-      if (!data || hasScrolledToBottomRef.current) return;
-
+      if (!data) return;
       let currentData = data;
+      let fetchCount = 0;
 
       while (
         currentData.pages.length - 1 < initialPage &&
-        !currentData.pages.at(-1)?.data.messages.pageable.isLast
+        !currentData.pages.at(-1)?.data.messages.pageable.isLast &&
+        fetchCount < 10
       ) {
         const next = await fetchNextPage();
         if (!next.data) break;
         currentData = next.data;
+        fetchCount++;
       }
 
       const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
       setMessages(allMessages);
 
-      setTimeout(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-      }, 0);
-
-      hasScrolledToBottomRef.current = true;
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        }, 0);
+      });
     };
 
     initMessages();
@@ -122,7 +126,6 @@ export default function ChatsIndividualPage() {
                 msg.messageSendAt === cleanedSendAt,
             );
             if (alreadyExists) return prev;
-
             return [
               ...prev,
               {
@@ -144,33 +147,6 @@ export default function ChatsIndividualPage() {
   }, []);
 
   useEffect(() => {
-    const initMessages = async () => {
-      if (!data || hasScrolledToBottomRef.current) return;
-      let currentData = data;
-
-      let fetchCount = 0;
-      while (
-        currentData.pages.length - 1 < initialPage &&
-        !currentData.pages.at(-1)?.data.messages.pageable.isLast &&
-        fetchCount < 10
-      ) {
-        const next = await fetchNextPage();
-        if (!next.data) break;
-        currentData = next.data;
-        fetchCount++;
-      }
-      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
-      setMessages(allMessages);
-      scrollToBottom();
-      hasScrolledToBottomRef.current = true;
-    };
-
-    initMessages();
-  }, [data, fetchNextPage, scrollToBottom]);
-
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
     if (messages.length > 0) {
       const timeout = setTimeout(() => scrollToBottom(), 0);
       return () => clearTimeout(timeout);
@@ -190,10 +166,6 @@ export default function ChatsIndividualPage() {
       }
     }
   }, [isError, error, router]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [data?.pages, scrollToBottom]);
 
   const { getRelationType } = useChannelRoomStore();
   const relationType = getRelationType(parsedChannelRoomId);
@@ -233,9 +205,7 @@ export default function ChatsIndividualPage() {
       toast.error('상대방 정보가 없습니다.');
       return;
     }
-
     const sendAt = new Date().toISOString();
-
     try {
       sendSocketMessage({
         roomId: parsedChannelRoomId,
@@ -246,7 +216,6 @@ export default function ChatsIndividualPage() {
     } catch (e) {
       toast.error('메세지 전송에 실패했어요');
     }
-
     onSuccess();
   };
 
@@ -330,7 +299,7 @@ export default function ChatsIndividualPage() {
             const prevDate = index > 0 ? formatKoreanDate(messages[index - 1].messageSendAt) : null;
             const isNewDate = currentDate !== prevDate;
             return (
-              <div key={msg.messageId} ref={index === messages.length - 1 ? scrollRef : null}>
+              <div key={msg.messageId}>
                 {isNewDate && (
                   <div className="mx-auto mt-2 mb-4 w-fit rounded-2xl bg-[var(--gray-100)] px-4 py-1 text-sm font-semibold text-[var(--gray-400)]">
                     {currentDate}
