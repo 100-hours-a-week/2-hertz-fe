@@ -74,9 +74,13 @@ export default function ChatsIndividualPage() {
       enabled: isChannelRoomIdValid,
     });
 
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
     const initMessages = async () => {
-      if (!data) return;
+      if (!data || hasInitializedRef.current) return;
+      hasInitializedRef.current = true;
+
       let currentData = data;
       let fetchCount = 0;
 
