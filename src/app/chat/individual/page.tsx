@@ -46,7 +46,9 @@ export default function ChannelsIndividualPage() {
           <button
             key={room.channelRoomId}
             onClick={() => {
-              router.push(`/chat/individual/${room.channelRoomId}?page=0&size=20`);
+              router.push(
+                `/chat/individual/${room.channelRoomId}?page=${room.lastPageNumber}&size=20`,
+              );
             }}
             className="flex w-full appearance-none items-start gap-5 overflow-hidden border-none bg-transparent p-0 text-left"
           >
