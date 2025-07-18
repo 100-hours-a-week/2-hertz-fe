@@ -37,6 +37,10 @@ export default function ChatsIndividualPage() {
   const { ref: scrollRef, inView } = useInView();
 
   const reconnectSSE = useSSEReconnector();
+  const [reconnectKey, setReconnectKey] = useState(Date.now());
+  useEffect(() => {
+    setReconnectKey(Date.now());
+  }, [parsedChannelRoomId]);
 
   useEffect(() => {
     if (isChannelRoomIdValid) {
@@ -57,7 +61,7 @@ export default function ChatsIndividualPage() {
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       refetchOnMount: true,
-      queryKey: ['channelRoom', parsedChannelRoomId],
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, reconnectKey],
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
         const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
@@ -72,14 +76,18 @@ export default function ChatsIndividualPage() {
       },
       initialPageParam: 0,
       enabled: isChannelRoomIdValid,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: false,
     });
 
-  const hasInitializedRef = useRef(false);
+  const hasInitializedRef = useRef<{ [page: number]: boolean }>({});
 
   useEffect(() => {
     const initMessages = async () => {
-      if (!data || hasInitializedRef.current) return;
-      hasInitializedRef.current = true;
+      if (!data || hasInitializedRef.current[initialPage]) return;
+      hasInitializedRef.current[initialPage] = true;
 
       let currentData = data;
       let fetchCount = 0;
