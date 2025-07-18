@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
@@ -50,6 +50,9 @@ export default function ChatsIndividualPage() {
   const myUserIdRef = useRef<number | null>(null);
   const hasScrolledToBottomRef = useRef(false);
 
+  const searchParams = useSearchParams();
+  const initialPage = Number(searchParams.get('page')) || 0;
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       queryKey: ['channelRoom', parsedChannelRoomId],
@@ -68,6 +71,34 @@ export default function ChatsIndividualPage() {
       initialPageParam: 0,
       enabled: isChannelRoomIdValid,
     });
+
+  useEffect(() => {
+    const initMessages = async () => {
+      if (!data || hasScrolledToBottomRef.current) return;
+
+      let currentData = data;
+
+      while (
+        currentData.pages.length - 1 < initialPage &&
+        !currentData.pages.at(-1)?.data.messages.pageable.isLast
+      ) {
+        const next = await fetchNextPage();
+        if (!next.data) break;
+        currentData = next.data;
+      }
+
+      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
+      setMessages(allMessages);
+
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 0);
+
+      hasScrolledToBottomRef.current = true;
+    };
+
+    initMessages();
+  }, [data, fetchNextPage, initialPage]);
 
   const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
     channelRoomId: parsedChannelRoomId,
@@ -117,12 +148,17 @@ export default function ChatsIndividualPage() {
       if (!data || hasScrolledToBottomRef.current) return;
       let currentData = data;
 
-      while (currentData && !currentData.pages.at(-1)?.data.messages.pageable.isLast) {
+      let fetchCount = 0;
+      while (
+        currentData.pages.length - 1 < initialPage &&
+        !currentData.pages.at(-1)?.data.messages.pageable.isLast &&
+        fetchCount < 10
+      ) {
         const next = await fetchNextPage();
         if (!next.data) break;
         currentData = next.data;
+        fetchCount++;
       }
-
       const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
       setMessages(allMessages);
       scrollToBottom();

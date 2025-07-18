@@ -10,6 +10,7 @@ export interface ChannelRoom {
   category: 'FRIEND' | 'COUPLE';
   isRead: boolean;
   relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
+  lastPageNumber: number;
 }
 
 export interface GetChannelRoomListResponse {
