@@ -89,7 +89,6 @@ export default function ChatsIndividualPage() {
     const initMessages = async () => {
       if (!data || hasInitializedRef.current[initialPage]) return;
       hasInitializedRef.current[initialPage] = true;
-
       let currentData = data;
       let fetchCount = 0;
 
