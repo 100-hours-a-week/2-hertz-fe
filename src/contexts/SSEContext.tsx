@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSSE } from '@/hooks/useSSE';
 import { getSSEHandlers } from '@/constants/sseHandlers';
@@ -13,7 +13,6 @@ import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 import toast from 'react-hot-toast';
-import { useMemo } from 'react';
 
 type SSEContextValue = {
   reconnect: () => void;
@@ -30,16 +29,15 @@ export const SSEProvider = ({ children }: { children: React.ReactNode }) => {
     setReconnectKey((prev) => prev + 1);
   }, []);
 
-  const confirmModalStore = useConfirmModalStore.getState();
-  const matchingResponseStore = useMatchingResponseStore.getState();
-  const waitingModalStore = useWaitingModalStore.getState();
-  const navNewMessageStore = useNavNewMessageStore.getState();
-  const newAlarmStore = useNewAlarmStore.getState();
-  const newMessageStore = useNewMessageStore.getState();
+  const confirmModalStore = useConfirmModalStore();
+  const matchingResponseStore = useMatchingResponseStore();
+  const waitingModalStore = useWaitingModalStore();
+  const navNewMessageStore = useNavNewMessageStore();
+  const newAlarmStore = useNewAlarmStore();
+  const newMessageStore = useNewMessageStore();
 
   const handlers = useMemo(() => {
     return getSSEHandlers({
-      pathname,
       handleAccept: async (channelRoomId, partnerNickname) => {
         await postMatchingAccept({ channelRoomId });
       },
@@ -58,7 +56,15 @@ export const SSEProvider = ({ children }: { children: React.ReactNode }) => {
       newAlarmStore,
       newMessageStore,
     });
-  }, [pathname]);
+  }, [
+    pathname,
+    confirmModalStore,
+    matchingResponseStore,
+    waitingModalStore,
+    navNewMessageStore,
+    newAlarmStore,
+    newMessageStore,
+  ]);
 
   useSSE({
     url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
