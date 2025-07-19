@@ -30,7 +30,6 @@ export type NewMessage = {
 export type SSEEventHandlers = Record<string, (data: unknown) => void>;
 
 export type HandlerParams = {
-  pathname: string;
   handleAccept: (channelRoomId: number, partnerNickname: string) => void;
   handleReject: (channelRoomId: number, partnerNickname: string) => void;
   getChannelRoomIdFromPath: (pathname: string) => number | null;
@@ -43,7 +42,6 @@ export type HandlerParams = {
 };
 
 export const getSSEHandlers = ({
-  pathname,
   handleAccept,
   handleReject,
   getChannelRoomIdFromPath,
@@ -53,7 +51,7 @@ export const getSSEHandlers = ({
   navNewMessageStore,
   newAlarmStore,
   newMessageStore,
-}: HandlerParams): SSEEventHandlers => {
+}: Omit<HandlerParams, 'pathname'>): SSEEventHandlers => {
   return {
     'signal-matching-conversion': (data: unknown) => {
       const { partnerNickname } = data as MatchingPayload;
@@ -71,11 +69,17 @@ export const getSSEHandlers = ({
       const currentRoomId = getChannelRoomIdFromPath(currentPathname);
       const effectiveRoomId = currentRoomId ?? channelRoomId;
 
-      const isAlreadyConfirmed = useMatchingConfirmedStore.getState().isConfirmed(channelRoomId);
-      const hasAlreadyResponded = useMatchingResponseStore.getState().hasResponded;
+      if (effectiveRoomId !== channelRoomId) {
+        console.log('❌ 채널 ID 불일치 → 모달 로직 스킵');
+        return;
+      }
 
+      const isAlreadyConfirmed = useMatchingConfirmedStore.getState().isConfirmed(channelRoomId);
+      const hasAlreadyResponded = useMatchingResponseStore
+        .getState()
+        .getHasResponded(channelRoomId);
+      console.log('[DEBUG] setHasResponded 여부 확인:', useMatchingResponseStore.getState());
       if (isAlreadyConfirmed || hasAlreadyResponded) return;
-      if (effectiveRoomId !== channelRoomId) return;
 
       confirmModalStore.openModal({
         title: (
@@ -90,10 +94,9 @@ export const getSSEHandlers = ({
         imageSrc: '/images/friends.png',
         variant: 'confirm',
         onConfirm: async () => {
-          matchingResponseStore.setHasResponded(true);
+          matchingResponseStore.setHasResponded(channelRoomId, true);
           try {
             const response = await postMatchingAccept({ channelRoomId });
-            console.log('response from postMatchingAccept:', response);
             useWaitingModalStore.getState().openModal(partnerNickname, channelRoomId);
 
             switch (response.code) {
@@ -124,7 +127,8 @@ export const getSSEHandlers = ({
           }
         },
         onCancel: async () => {
-          matchingResponseStore.setHasResponded(true);
+          matchingResponseStore.setHasResponded(channelRoomId, true);
+          useChannelRoomStore.getState().setRelationType(channelRoomId, 'UNMATCHED');
           confirmModalStore.closeModal();
 
           try {
@@ -151,7 +155,9 @@ export const getSSEHandlers = ({
 
       useMatchingConfirmedStore.getState().markConfirmed(channelRoomId);
 
-      const hasAlreadyResponded = useMatchingResponseStore.getState().hasResponded;
+      const hasAlreadyResponded = useMatchingResponseStore
+        .getState()
+        .getHasResponded(channelRoomId);
       if (hasAlreadyResponded) return;
 
       try {
@@ -171,7 +177,7 @@ export const getSSEHandlers = ({
           imageSrc: '/images/friends.png',
           variant: 'confirm',
           onConfirm: async () => {
-            matchingResponseStore.setHasResponded(true);
+            useMatchingResponseStore.getState().setHasResponded(channelRoomId, true);
 
             if (relationType === 'UNMATCHED') {
               toast(`${partnerNickname}님과 매칭을 실패했어요`, { icon: '🥺' });
@@ -187,7 +193,7 @@ export const getSSEHandlers = ({
             confirmModalStore.closeModal();
           },
           onCancel: () => {
-            matchingResponseStore.setHasResponded(true);
+            useMatchingResponseStore.getState().setHasResponded(channelRoomId, true);
             toast(`${partnerNickname}님과의 매칭을 거절했어요`, {
               icon: '🙅‍♀️',
               id: 'matching-reject',
@@ -206,6 +212,9 @@ export const getSSEHandlers = ({
       const { partnerNickname, channelRoomId } = data as MatchingPayload;
       useWaitingModalStore.getState().reset();
       toast.success(`🎉 ${partnerNickname}님과 매칭이 완료됐어요!`, { id: 'matching-success' });
+
+      useMatchingResponseStore.getState().reset();
+
       useChannelRoomStore.getState().setRelationType(channelRoomId, 'MATCHING');
 
       try {
