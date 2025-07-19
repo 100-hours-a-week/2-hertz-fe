@@ -66,3 +66,11 @@ export const patchUserIntroduction = async (
   const res = await axiosInstance.patch(`${BASE_URL}/v3/users/${userId}`, payload);
   return res.data;
 };
+
+export const postWebpushSubscribe = async (fcmToken: string) => {
+  const response = await axiosInstance.post(`${BASE_URL}/push/token`, {
+    token: fcmToken,
+  });
+
+  return response.data;
+};
