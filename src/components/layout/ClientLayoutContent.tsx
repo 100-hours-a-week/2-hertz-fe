@@ -41,7 +41,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const isPathValid = typeof pathname === 'string' && pathname.length > 0;
 
   const handlers = getSSEHandlers({
-    pathname,
     handleAccept: async (channelRoomId, partnerNickname) => {
       await postMatchingAccept({ channelRoomId });
       toast.success(`${partnerNickname}님과 매칭이 완료됐어요!`, {
