@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState, useLayoutEffect } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -40,6 +40,7 @@ export default function ChatsIndividualPage() {
   const [reconnectKey, setReconnectKey] = useState(Date.now());
   useEffect(() => {
     setReconnectKey(Date.now());
+    console.log('💬 parsedChannelRoomId: ', parsedChannelRoomId);
   }, [parsedChannelRoomId]);
 
   useEffect(() => {
@@ -179,12 +180,13 @@ export default function ChatsIndividualPage() {
     }
   }, [isError, error, router]);
 
-  const { getRelationType } = useChannelRoomStore();
-  const relationType = getRelationType(parsedChannelRoomId);
+  const relationType = useChannelRoomStore((state) => state.relationTypeMap[parsedChannelRoomId]);
   const partner = data?.pages?.[0]?.data;
-  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
-  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+  const hasResponded = useMatchingResponseStore((state) =>
+    state.getHasResponded(parsedChannelRoomId),
+  );
 
+  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
   const isFetchingRef = useRef(false);
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingRef.current) {
