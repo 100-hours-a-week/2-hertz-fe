@@ -28,8 +28,10 @@ export function ConfirmModal() {
   }, [pathname, isOpen, closeModal]);
 
   const isChatIndividualPage = /^\/chat\/individual\/\d+/.test(pathname);
+  const isMyPage = pathname === '/mypage';
+  const isLogoutModal = variant === 'quit';
 
-  if (!isOpen || !isChatIndividualPage) return null;
+  if (!isOpen || (!isChatIndividualPage && !isMyPage && !isLogoutModal)) return null;
 
   const isSingleButton = !cancelText;
 
