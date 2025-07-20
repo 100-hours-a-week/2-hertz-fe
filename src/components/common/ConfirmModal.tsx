@@ -27,7 +27,9 @@ export function ConfirmModal() {
     prevPathnameRef.current = pathname;
   }, [pathname, isOpen, closeModal]);
 
-  if (!isOpen) return null;
+  const isChatIndividualPage = /^\/chat\/individual\/\d+/.test(pathname);
+
+  if (!isOpen || !isChatIndividualPage) return null;
 
   const isSingleButton = !cancelText;
 
