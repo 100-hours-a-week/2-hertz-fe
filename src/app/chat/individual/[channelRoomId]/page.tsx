@@ -60,6 +60,7 @@ export default function ChatsIndividualPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
+  const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
@@ -354,13 +355,15 @@ export default function ChatsIndividualPage() {
         {isUnmatched && <UnavailableChannelBanner />}
         <ChatSignalInputBox
           onSend={handleSend}
-          disabled={isUnmatched || isWaitingModalVisible}
+          disabled={isUnmatched || isWaitingModalVisible || isMatchingResponseModalVisible}
           placeholder={
             isUnmatched
               ? '더 이상 메세지를 보낼 수 없습니다'
               : isWaitingModalVisible
                 ? '상대방 응답을 기다리는 중입니다'
-                : '메세지를 입력해주세요'
+                : isMatchingResponseModalVisible
+                  ? '상대방의 응답을 기다리는 중입니다'
+                  : '메세지를 입력해주세요'
           }
         />
       </div>

@@ -2,6 +2,9 @@ import { create } from 'zustand';
 
 interface MatchingResponseState {
   hasRespondedMap: Record<number, boolean>;
+  isModalOpen: boolean;
+  openModal: () => void;
+  closeModal: () => void;
   setHasResponded: (channelRoomId: number, value: boolean) => void;
   getHasResponded: (channelRoomId: number) => boolean;
   reset: (channelRoomId?: number) => void;
@@ -21,6 +24,10 @@ const getInitialState = (): Record<number, boolean> => {
 
 export const useMatchingResponseStore = create<MatchingResponseState>((set, get) => ({
   hasRespondedMap: getInitialState(),
+  isModalOpen: false,
+
+  openModal: () => set({ isModalOpen: true }),
+  closeModal: () => set({ isModalOpen: false }),
 
   setHasResponded: (channelRoomId, value) => {
     const updated = { ...get().hasRespondedMap, [channelRoomId]: value };

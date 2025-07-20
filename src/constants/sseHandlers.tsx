@@ -81,6 +81,7 @@ export const getSSEHandlers = ({
       console.log('[DEBUG] setHasResponded 여부 확인:', useMatchingResponseStore.getState());
       if (isAlreadyConfirmed || hasAlreadyResponded) return;
 
+      useMatchingResponseStore.getState().openModal();
       confirmModalStore.openModal({
         title: (
           <>
