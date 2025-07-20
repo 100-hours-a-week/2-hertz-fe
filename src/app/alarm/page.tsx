@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AlarmListNotFoundPage from '@/components/alarm/AlarmListNotFound';
 import toast from 'react-hot-toast';
+import AlarmLoading from '@/components/alarm/AlarmLoading';
 
 dayjs.extend(relativeTime);
 dayjs.locale('ko');
@@ -58,6 +59,14 @@ export default function AlarmPage() {
   }
 
   const alarms = data.pages.flatMap((page) => page.data?.list ?? []) ?? [];
+  if (alarms.length === 0) {
+    return (
+      <>
+        <Header title="알림" showBackButton={true} showNotificationButton={false} />
+        <AlarmLoading />
+      </>
+    );
+  }
 
   return (
     <>
