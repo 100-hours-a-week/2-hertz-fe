@@ -59,6 +59,9 @@ export default function ChatsIndividualPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
+  const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       refetchOnMount: true,
@@ -185,7 +188,12 @@ export default function ChatsIndividualPage() {
     state.getHasResponded(parsedChannelRoomId),
   );
 
-  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+  const relationTypeFromStore = useChannelRoomStore((state) =>
+    state.getRelationType(parsedChannelRoomId),
+  );
+  const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
+  const isUnmatched = effectiveRelationType === 'UNMATCHED' && hasResponded;
+
   const isFetchingRef = useRef(false);
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingRef.current) {
@@ -349,18 +357,20 @@ export default function ChatsIndividualPage() {
         </div>
       </main>
       <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
-        {isUnmatched ? (
-          <>
-            <UnavailableChannelBanner />
-            <ChatSignalInputBox
-              onSend={handleSend}
-              disabled={true}
-              placeholder="더 이상 메세지를 보낼 수 없습니다"
-            />
-          </>
-        ) : (
-          <ChatSignalInputBox onSend={handleSend} placeholder="메세지를 입력해주세요" />
-        )}
+        {isUnmatched && <UnavailableChannelBanner />}
+        <ChatSignalInputBox
+          onSend={handleSend}
+          disabled={isUnmatched || isWaitingModalVisible || isMatchingResponseModalVisible}
+          placeholder={
+            isUnmatched
+              ? '더 이상 메세지를 보낼 수 없습니다'
+              : isWaitingModalVisible
+                ? '상대방 응답을 기다리는 중입니다'
+                : isMatchingResponseModalVisible
+                  ? '상대방의 응답을 기다리는 중입니다'
+                  : '메세지를 입력해주세요'
+          }
+        />
       </div>
     </>
   );
