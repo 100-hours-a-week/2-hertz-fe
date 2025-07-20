@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AlarmListNotFoundPage from '@/components/alarm/AlarmListNotFound';
 import toast from 'react-hot-toast';
+import AlarmLoading from '@/components/alarm/AlarmLoading';
 
 dayjs.extend(relativeTime);
 dayjs.locale('ko');
@@ -58,6 +59,14 @@ export default function AlarmPage() {
   }
 
   const alarms = data.pages.flatMap((page) => page.data?.list ?? []) ?? [];
+  if (alarms.length === 0) {
+    return (
+      <>
+        <Header title="알림" showBackButton={true} showNotificationButton={false} />
+        <AlarmLoading />
+      </>
+    );
+  }
 
   return (
     <>
@@ -111,6 +120,8 @@ export default function AlarmPage() {
               );
             } else if (alarm.type === 'MATCHING') {
               const roomId = alarm.channelRoomId;
+              const lastPageNumber = alarm.lastPageNumber ?? 0;
+
               return (
                 <div
                   key={index}
@@ -118,7 +129,7 @@ export default function AlarmPage() {
                     if (!roomId) {
                       toast.error('이미 나간 채팅방입니다.');
                     }
-                    router.push(`/chat/individual/${roomId}?page=0&size=20`);
+                    router.push(`/chat/individual/${roomId}?page=${lastPageNumber}&size=20`);
                   }}
                   className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
                 >
