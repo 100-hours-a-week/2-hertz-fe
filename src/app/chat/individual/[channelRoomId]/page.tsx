@@ -188,7 +188,12 @@ export default function ChatsIndividualPage() {
     state.getHasResponded(parsedChannelRoomId),
   );
 
-  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
+  const relationTypeFromStore = useChannelRoomStore((state) =>
+    state.getRelationType(parsedChannelRoomId),
+  );
+  const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
+  const isUnmatched = effectiveRelationType === 'UNMATCHED' && hasResponded;
+
   const isFetchingRef = useRef(false);
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingRef.current) {

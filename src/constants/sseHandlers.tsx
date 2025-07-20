@@ -135,6 +135,9 @@ export const getSSEHandlers = ({
           try {
             const res = await postMatchingReject({ channelRoomId });
             if (res.code === 'MATCH_REJECTION_SUCCESS') {
+              await queryClient.invalidateQueries({
+                queryKey: ['channelRoomDetail', channelRoomId],
+              });
               toast(`${partnerNickname}님과의 매칭을 거절했어요`, {
                 icon: '🙅‍♀️',
                 id: 'matching-reject',
@@ -228,11 +231,15 @@ export const getSSEHandlers = ({
     },
 
     'matching-rejection': (data: unknown) => {
-      const { partnerNickname } = data as MatchingPayload;
+      const { partnerNickname, channelRoomId } = data as MatchingPayload;
+
       useWaitingModalStore.getState().reset();
       toast(`${partnerNickname}님이 매칭을 거절했어요`, { icon: '🥲', id: 'matching-reject' });
-    },
 
+      useChannelRoomStore.getState().setRelationType(channelRoomId, 'UNMATCHED');
+
+      queryClient.invalidateQueries({ queryKey: ['channelRoomDetail', channelRoomId] });
+    },
     'nav-new-message': () => {
       navNewMessageStore.setHasNewMessage(true);
     },
