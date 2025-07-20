@@ -111,6 +111,8 @@ export default function AlarmPage() {
               );
             } else if (alarm.type === 'MATCHING') {
               const roomId = alarm.channelRoomId;
+              const lastPageNumber = alarm.lastPageNumber ?? 0;
+
               return (
                 <div
                   key={index}
@@ -118,7 +120,7 @@ export default function AlarmPage() {
                     if (!roomId) {
                       toast.error('이미 나간 채팅방입니다.');
                     }
-                    router.push(`/chat/individual/${roomId}?page=0&size=20`);
+                    router.push(`/chat/individual/${roomId}?page=${lastPageNumber}&size=20`);
                   }}
                   className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
                 >

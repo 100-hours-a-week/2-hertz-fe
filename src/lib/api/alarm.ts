@@ -7,6 +7,7 @@ export interface AlarmList {
   content?: string;
   channelRoomId?: number;
   createdDate: string;
+  lastPageNumber?: number;
 }
 
 export interface getAlarmListResponse {
