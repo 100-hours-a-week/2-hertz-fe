@@ -36,7 +36,7 @@ export const useSSE = ({
       isConnectingRef.current = true;
 
       if (eventSourceRef.current) {
-        console.log(`[기존 SSE 연결 해제] channelRoomId: ${channelRoomId}`);
+        console.log(`[기존 SSE 연결 해제]`);
         Object.entries(listenerMapRef.current).forEach(([event, listener]) => {
           eventSourceRef.current!.removeEventListener(event, listener);
         });
@@ -49,7 +49,7 @@ export const useSSE = ({
       listenerMapRef.current = {};
 
       eventSource.onopen = () => {
-        console.log(`[SSE 연결 완료] channelRoomId: ${channelRoomId}`);
+        console.log(`[SSE 연결 완료]`);
         isConnectingRef.current = false;
         lastHeartbeatRef.current = Date.now();
       };

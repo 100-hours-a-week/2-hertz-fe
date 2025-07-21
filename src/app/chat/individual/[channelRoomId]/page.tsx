@@ -276,6 +276,12 @@ export default function ChatsIndividualPage() {
     });
   };
 
+  const isWaitingInThisRoom =
+    isWaitingModalVisible && waitingModalChannelId === parsedChannelRoomId;
+
+  const isMatchingInThisRoom =
+    isMatchingResponseModalVisible && waitingModalChannelId === parsedChannelRoomId;
+
   const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
     useConfirmModalStore.getState().openModal({
       title: '정말 채팅방을 나가시겠어요?',
@@ -360,14 +366,14 @@ export default function ChatsIndividualPage() {
         {isUnmatched && <UnavailableChannelBanner />}
         <ChatSignalInputBox
           onSend={handleSend}
-          disabled={isUnmatched || isWaitingModalVisible || isMatchingResponseModalVisible}
+          disabled={isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
           placeholder={
             isUnmatched
               ? '더 이상 메세지를 보낼 수 없습니다'
               : isWaitingModalVisible
-                ? '상대방 응답을 기다리는 중입니다'
+                ? '메세지를 입력해주세요'
                 : isMatchingResponseModalVisible
-                  ? '상대방의 응답을 기다리는 중입니다'
+                  ? '메세지를 입력해주세요'
                   : '메세지를 입력해주세요'
           }
         />
