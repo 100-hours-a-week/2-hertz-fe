@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import ClientLayoutContent from '@/components/layout/ClientLayoutContent';
 import Providers from './providers';
 import { AuthGuard } from '@/components/layout/AuthGuard';
+import Script from 'next/script';
 
 const pretendard = localFont({
   src: '../fonts/PretendardVariable.woff2',
@@ -29,14 +30,33 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
+      <head>
+        <Script id="gtm-head" strategy="beforeInteractive">
+          {`
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','GTM-WQJ56TG4');
+          `}
+        </Script>
+      </head>
       <body
-        className={`${pretendard.variable} font-pretendard flex h-[calc(screen-32px)] min-h-screen touch-manipulation flex-col items-center overscroll-none bg-[url('/images/bg.png')] bg-cover bg-center bg-no-repeat`}
+        className={`${pretendard.variable} font-pretendard flex min-h-screen touch-manipulation flex-col items-center overscroll-none bg-[url('/images/bg.png')] bg-cover bg-center bg-no-repeat`}
       >
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-WQJ56TG4"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
         <Providers>
           <ClientLayoutContent>
             <AuthGuard>
-              <div className="mx-auto flex h-[calc(screen-32px)] w-full max-w-md flex-col bg-white">
-                {children}
+              <div className="mx-auto flex w-full max-w-md flex-1 flex-col bg-white">
+                <div className="flex-1 overflow-y-auto">{children}</div>
               </div>
             </AuthGuard>
           </ClientLayoutContent>

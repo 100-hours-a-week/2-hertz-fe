@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AlarmListNotFoundPage from '@/components/alarm/AlarmListNotFound';
 import toast from 'react-hot-toast';
+import AlarmLoading from '@/components/alarm/AlarmLoading';
 
 dayjs.extend(relativeTime);
 dayjs.locale('ko');
@@ -58,6 +59,14 @@ export default function AlarmPage() {
   }
 
   const alarms = data.pages.flatMap((page) => page.data?.list ?? []) ?? [];
+  if (alarms.length === 0) {
+    return (
+      <>
+        <Header title="알림" showBackButton={true} showNotificationButton={false} />
+        <AlarmLoading />
+      </>
+    );
+  }
 
   return (
     <>
@@ -87,8 +96,32 @@ export default function AlarmPage() {
                   </div>
                 </div>
               );
+            }
+            if (alarm.type === 'ALERT') {
+              return (
+                <div
+                  key={index}
+                  className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
+                >
+                  <div className="mt-1 mb-1 flex items-center justify-between">
+                    <span className="flex-shrink-0 rounded-2xl bg-[var(--light-blue)] px-2.5 py-1 text-xs font-semibold text-[var(--dark-blue)]">
+                      경고
+                    </span>
+                    <span className="text-xs text-[var(--gray-300)]">
+                      {dayjs(alarm.createdDate).fromNow()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 text-left text-sm font-medium">
+                    <div className="flex flex-col gap-1 px-1">
+                      <span className="text-black">🚨 {alarm.title}</span>
+                    </div>
+                  </div>
+                </div>
+              );
             } else if (alarm.type === 'MATCHING') {
               const roomId = alarm.channelRoomId;
+              const lastPageNumber = alarm.lastPageNumber ?? 0;
+
               return (
                 <div
                   key={index}
@@ -96,7 +129,7 @@ export default function AlarmPage() {
                     if (!roomId) {
                       toast.error('이미 나간 채팅방입니다.');
                     }
-                    router.push(`/chat/individual/${roomId}?page=0&size=20`);
+                    router.push(`/chat/individual/${roomId}?page=${lastPageNumber}&size=20`);
                   }}
                   className="cursor-pointer rounded-xl border-b bg-white px-4 py-2 transition hover:bg-gray-50"
                 >

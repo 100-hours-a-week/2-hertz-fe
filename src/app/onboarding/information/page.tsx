@@ -6,7 +6,7 @@ import OnboardingInformationWrapper from '@/components/onboarding/information/On
 
 export default function OnboardingInformationPage() {
   return (
-    <div className="flex flex-col items-center justify-center overflow-y-hidden pt-14">
+    <div className="flex min-h-screen flex-col items-center justify-center overflow-y-hidden pt-14">
       <Suspense fallback={<ScaleLoader />}>
         <OnboardingInformationWrapper />
       </Suspense>

@@ -16,7 +16,7 @@ export default function OneLineIntroductionInput() {
     <main className="w-full space-y-4 px-2">
       <div className="flex items-center justify-between">
         <p className="text-base font-semibold">한 줄 소개를 작성해주세요</p>
-        <p className="text-xs text-[var(--gray-300)]">{value.length} / 100</p>
+        <p className="text-xs text-[var(--gray-300)]"> {value.replace(/\s/g, '').length} / 100</p>
       </div>
 
       <div>

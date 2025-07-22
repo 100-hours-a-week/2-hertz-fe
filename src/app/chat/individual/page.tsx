@@ -46,7 +46,9 @@ export default function ChannelsIndividualPage() {
           <button
             key={room.channelRoomId}
             onClick={() => {
-              router.push(`/chat/individual/${room.channelRoomId}?page=0&size=20`);
+              router.push(
+                `/chat/individual/${room.channelRoomId}?page=${room.lastPageNumber}&size=20`,
+              );
             }}
             className="flex w-full appearance-none items-start gap-5 overflow-hidden border-none bg-transparent p-0 text-left"
           >
@@ -74,6 +76,7 @@ export default function ChannelsIndividualPage() {
                           : 'bg-[var(--gray-100)] text-[var(--blue)]'
                       }`}
                     >
+                      {room.category === 'FRIEND' ? '친구 / ' : '연인 / '}
                       {room.relationType === 'MATCHING' ? '매칭' : '시그널'}
                     </span>
                     <span className="text-sm font-semibold text-ellipsis">

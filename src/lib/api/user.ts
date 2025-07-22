@@ -37,10 +37,40 @@ export interface GetUserInfoResponse {
       selfDevelopment: string[];
       hobbies: string[];
     };
+    friendAllowed: boolean;
+    coupleAllowed: boolean;
   };
 }
 
 export const getUserInfo = async (userId: string): Promise<GetUserInfoResponse> => {
-  const response = await axiosInstance.get<GetUserInfoResponse>(`${BASE_URL}/v2/users/${userId}`);
+  const response = await axiosInstance.get<GetUserInfoResponse>(`${BASE_URL}/v3/users/${userId}`);
+  return response.data;
+};
+
+export interface PatchUserIntroductionRequest {
+  oneLineIntroduction: string;
+}
+
+export interface PatchUserIntroductionResponse {
+  code: string;
+  message: string;
+  data: null;
+}
+
+export const patchUserIntroduction = async (
+  userId: string,
+  content: string,
+): Promise<PatchUserIntroductionResponse> => {
+  const payload: PatchUserIntroductionRequest = { oneLineIntroduction: content };
+
+  const res = await axiosInstance.patch(`${BASE_URL}/v3/users/${userId}`, payload);
+  return res.data;
+};
+
+export const postWebpushSubscribe = async (fcmToken: string) => {
+  const response = await axiosInstance.post(`${BASE_URL}/push/token`, {
+    token: fcmToken,
+  });
+
   return response.data;
 };

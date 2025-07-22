@@ -7,8 +7,10 @@ export interface ChannelRoom {
   partnerNickname: string;
   lastMessage: string;
   lastMessageTime: string;
+  category: 'FRIEND' | 'COUPLE';
   isRead: boolean;
   relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
+  lastPageNumber: number;
 }
 
 export interface GetChannelRoomListResponse {
@@ -23,12 +25,12 @@ export interface GetChannelRoomListResponse {
 }
 
 export const getChannelRooms = async (page = 0, size = 10): Promise<GetChannelRoomListResponse> => {
-  const response = await axiosInstance.get(`/v1/channel?page=${page}&size=${size}`);
+  const response = await axiosInstance.get(`/v3/channel?page=${page}&size=${size}`);
   return response.data;
 };
 
 export interface List {
-  messageId: number;
+  messageId?: number;
   messageSenderId: number;
   messageContents: string;
   messageSendAt: string;
@@ -71,7 +73,6 @@ export const getChannelRoomDetail = async (
       `/v1/channel-rooms/${channelRoomId}?page=${page}&size=${size}`,
     );
     return response.data;
-
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       const code = error.response?.data?.code;
@@ -113,5 +114,24 @@ export interface DeleteChannelResponse {
 
 export const deleteChannelRoom = async (channelRoomId: number): Promise<DeleteChannelResponse> => {
   const response = await axiosInstance.delete(`/v2/channel-rooms/${channelRoomId}`);
+  return response.data;
+};
+
+export interface PostReportMessagesRequest {
+  messageId: number;
+  messageContent: string;
+  reportedUserId: number;
+}
+
+export interface PostReportMessagesResponse {
+  code: string;
+  message: string;
+  data: null;
+}
+
+export const postReportMessage = async (
+  payload: PostReportMessagesRequest,
+): Promise<PostReportMessagesResponse> => {
+  const response = await axiosInstance.post(`/v3/reports`, payload);
   return response.data;
 };

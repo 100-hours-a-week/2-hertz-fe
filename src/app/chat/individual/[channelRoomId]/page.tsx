@@ -1,42 +1,286 @@
 'use client';
 
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { useInView } from 'react-intersection-observer';
+
 import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
 import ChatSignalInputBox from '@/components/chat/common/ChatSignalInputBox';
-import {
-  ChannelRoomDetailResponse,
-  deleteChannelRoom,
-  getChannelRoomDetail,
-  postChannelMessage,
-} from '@/lib/api/chat';
-import { useQueryClient } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { useInView } from 'react-intersection-observer';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
-import { formatKoreanDate } from '@/utils/format';
 import UnavailableChannelBanner from '@/components/chat/UnavailableChannelBanner';
+
+import {
+  getChannelRoomDetail,
+  deleteChannelRoom,
+  postReportMessage,
+  ChannelRoomDetailResponse,
+} from '@/lib/api/chat';
+import { formatKoreanDate } from '@/utils/format';
+import { useSocketIO } from '@/hooks/useSocketIO';
+import { WebSocketIncomingMessage } from '@/types/WebSocketType';
+import { AxiosError } from 'axios';
+
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
+import { useSSEReconnector } from '@/hooks/useSSEReconnector';
+import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
-  const queryClient = useQueryClient();
-  const { ref: scrollRef, inView } = useInView();
-
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
-
   const router = useRouter();
+  const { ref: scrollRef, inView } = useInView();
+
+  const reconnectSSE = useSSEReconnector();
+  const [reconnectKey, setReconnectKey] = useState(Date.now());
+  useEffect(() => {
+    setReconnectKey(Date.now());
+    console.log('💬 parsedChannelRoomId: ', parsedChannelRoomId);
+  }, [parsedChannelRoomId]);
+
+  useEffect(() => {
+    if (isChannelRoomIdValid) {
+      reconnectSSE();
+    }
+  }, [parsedChannelRoomId, reconnectSSE, isChannelRoomIdValid]);
+
+  const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
+    [],
+  );
+  const myUserIdRef = useRef<number | null>(null);
+
+  const searchParams = useSearchParams();
+  const initialPage = Number(searchParams.get('page')) || 0;
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
+  const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
+
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
+    useInfiniteQuery<ChannelRoomDetailResponse>({
+      refetchOnMount: true,
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, reconnectKey],
+      queryFn: async ({ pageParam = 0 }) => {
+        const page = pageParam as number;
+        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
+        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
+          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
+        return response;
+      },
+      getNextPageParam: (lastPage) => {
+        const pagination = lastPage.data.messages.pageable;
+        return pagination.isLast ? undefined : pagination.pageNumber + 1;
+      },
+      initialPageParam: 0,
+      enabled: isChannelRoomIdValid,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: false,
+    });
+
+  const hasInitializedRef = useRef<{ [page: number]: boolean }>({});
+
+  useEffect(() => {
+    const initMessages = async () => {
+      if (!data || hasInitializedRef.current[initialPage]) return;
+      hasInitializedRef.current[initialPage] = true;
+      let currentData = data;
+      let fetchCount = 0;
+
+      while (
+        currentData.pages.length - 1 < initialPage &&
+        !currentData.pages.at(-1)?.data.messages.pageable.isLast &&
+        fetchCount < 10
+      ) {
+        const next = await fetchNextPage();
+        if (!next.data) break;
+        currentData = next.data;
+        fetchCount++;
+      }
+
+      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
+      setMessages(allMessages);
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        }, 0);
+      });
+    };
+
+    initMessages();
+  }, [data, fetchNextPage, initialPage]);
+
+  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
+    channelRoomId: parsedChannelRoomId,
+    onMessage: (data: WebSocketIncomingMessage) => {
+      switch (data.event) {
+        case 'init_user':
+          myUserIdRef.current = data.data;
+          break;
+        case 'receive_message': {
+          const { messageId, senderId, roomId, message, sendAt } = data.data;
+          const isMine = senderId === myUserIdRef.current;
+          if (!isMine) sendMarkAsRead({ roomId });
+          const cleanedSendAt =
+            typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
+
+          setMessages((prev) => {
+            const alreadyExists = prev.some(
+              (msg) =>
+                msg.messageSenderId === senderId &&
+                msg.messageContents === message &&
+                msg.messageSendAt === cleanedSendAt,
+            );
+            if (alreadyExists) return prev;
+            return [
+              ...prev,
+              {
+                messageId,
+                messageSenderId: senderId,
+                messageContents: message,
+                messageSendAt: cleanedSendAt,
+              },
+            ];
+          });
+          break;
+        }
+      }
+    },
+  });
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const timeout = setTimeout(() => scrollToBottom(), 0);
+      return () => clearTimeout(timeout);
+    }
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      if (error.message === 'ALREADY_EXITED_CHANNEL_ROOM') {
+        toast.error('이미 나간 채팅방입니다.');
+        router.back();
+      } else if (error.message === 'USER_DEACTIVATED') {
+        toast.error('상대방이 탈퇴한 사용자입니다.');
+        router.back();
+      } else {
+        toast.error('채팅방 정보를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+  }, [isError, error, router]);
+
+  const relationType = useChannelRoomStore((state) => state.relationTypeMap[parsedChannelRoomId]);
+  const partner = data?.pages?.[0]?.data;
+  const hasResponded = useMatchingResponseStore((state) =>
+    state.getHasResponded(parsedChannelRoomId),
+  );
+
+  const relationTypeFromStore = useChannelRoomStore((state) =>
+    state.getRelationType(parsedChannelRoomId),
+  );
+  const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
+  const isUnmatched = effectiveRelationType === 'UNMATCHED' && hasResponded;
+
+  const isFetchingRef = useRef(false);
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingRef.current) {
+      isFetchingRef.current = true;
+      fetchNextPage().finally(() => {
+        isFetchingRef.current = false;
+      });
+    }
+  }, [inView, hasNextPage, fetchNextPage]);
 
   const {
     shouldShowModal,
     channelRoomId: waitingModalChannelId,
     openModal,
   } = useWaitingModalStore();
+
+  useEffect(() => {
+    if (
+      shouldShowModal &&
+      partner?.partnerNickname &&
+      waitingModalChannelId === parsedChannelRoomId &&
+      partner?.relationType !== 'MATCHING'
+    ) {
+      openModal(partner.partnerNickname, parsedChannelRoomId);
+    }
+  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
+
+  const handleSend = (message: string, onSuccess: () => void) => {
+    if (!partner?.partnerId) {
+      toast.error('상대방 정보가 없습니다.');
+      return;
+    }
+    const sendAt = new Date().toISOString();
+    try {
+      sendSocketMessage({
+        roomId: parsedChannelRoomId,
+        receiverUserId: partner.partnerId,
+        message,
+        sendAt,
+      });
+    } catch (e) {
+      toast.error('메세지 전송에 실패했어요');
+    }
+    onSuccess();
+  };
+
+  const handleReport = ({
+    messageId,
+    messageContent,
+    reportedUserId,
+  }: {
+    messageId: number;
+    messageContent: string;
+    reportedUserId: number;
+  }) => {
+    useConfirmModalStore.getState().openModal({
+      title: '부적절한 메시지로 신고하시겠어요?',
+      description:
+        '신고 내용은 운영진에게 전달되며, 신고된 메시지는 운영 정책에 따라 검토 후 조치됩니다.',
+      confirmText: '신고하기',
+      cancelText: '취소',
+      variant: 'confirm',
+      onConfirm: async () => {
+        try {
+          await postReportMessage({ messageId, messageContent, reportedUserId });
+          toast.success('신고가 정상적으로 접수되었습니다.');
+        } catch (error: unknown) {
+          if (error instanceof AxiosError && error.response?.data?.code === 'USER_DEACTIVATED') {
+            toast.error('상대방이 탈퇴한 사용자입니다.');
+          } else {
+            toast.error('신고 처리 중 오류가 발생했습니다.');
+          }
+        } finally {
+          useConfirmModalStore.getState().closeModal();
+        }
+      },
+      onCancel: () => {
+        useConfirmModalStore.getState().closeModal();
+      },
+    });
+  };
+
+  const isWaitingInThisRoom =
+    isWaitingModalVisible && waitingModalChannelId === parsedChannelRoomId;
+
+  const isMatchingInThisRoom =
+    isMatchingResponseModalVisible && waitingModalChannelId === parsedChannelRoomId;
 
   const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
     useConfirmModalStore.getState().openModal({
@@ -62,102 +306,6 @@ export default function ChatsIndividualPage() {
     });
   };
 
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
-    useInfiniteQuery<ChannelRoomDetailResponse>({
-      queryKey: ['channelRoom', parsedChannelRoomId],
-      queryFn: async ({ pageParam = 0 }) => {
-        const page = pageParam as number;
-        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
-
-        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM') {
-          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
-        }
-        if (response.code === 'USER_DEACTIVATED') {
-          throw new Error('USER_DEACTIVATED');
-        }
-
-        return response;
-      },
-      getNextPageParam: (lastPage) => {
-        const pagination = lastPage.data.messages.pageable;
-        return pagination.isLast ? undefined : pagination.pageNumber + 1;
-      },
-      initialPageParam: 0,
-      enabled: isChannelRoomIdValid,
-    });
-
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    if (isError && error instanceof Error) {
-      if (error.message === 'ALREADY_EXITED_CHANNEL_ROOM') {
-        toast.error('이미 나간 채팅방입니다.');
-        router.back();
-      } else if (error.message === 'USER_DEACTIVATED') {
-        toast.error('상대방이 탈퇴한 사용자입니다.');
-        router.back();
-      } else {
-        toast.error('채팅방 정보를 불러오는 중 오류가 발생했습니다.');
-      }
-    }
-  }, [isError, error, router]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [data?.pages]);
-
-  const partner = data?.pages?.[0]?.data;
-  const messages = data?.pages.flatMap((page) => page.data.messages.list) || [];
-
-  const hasResponded = useMatchingResponseStore((state) => state.hasResponded);
-  const isUnmatched = partner?.relationType === 'UNMATCHED' && hasResponded;
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  useEffect(() => {
-    if (
-      shouldShowModal &&
-      partner?.partnerNickname &&
-      waitingModalChannelId === parsedChannelRoomId &&
-      partner?.relationType !== 'MATCHING'
-    ) {
-      openModal(partner.partnerNickname, parsedChannelRoomId);
-    }
-  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
-
-  // polling
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['channelRoom', parsedChannelRoomId] });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [parsedChannelRoomId, queryClient]);
-
-  const handleSend = async (message: string, onSuccess: () => void) => {
-    try {
-      const response = await postChannelMessage(parsedChannelRoomId, { message });
-
-      if (response.code === 'MESSAGE_CREATED') {
-        onSuccess();
-      } else if (response.code === 'USER_DEACTIVATED') {
-        toast.error('상대방이 탈퇴한 사용자입니다.');
-      } else {
-        toast.error('알 수 없는 오류가 발생했습니다.');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('메세지 전송에 실패했습니다.');
-    }
-  };
-
   if (!isChannelRoomIdValid) return toast.error('나간 채팅방에 다시 접속할 수 없습니다.');
   if (isLoading)
     return <p className="flex items-center justify-center text-sm font-medium">로딩 중...</p>;
@@ -177,9 +325,8 @@ export default function ChatsIndividualPage() {
             const currentDate = formatKoreanDate(msg.messageSendAt);
             const prevDate = index > 0 ? formatKoreanDate(messages[index - 1].messageSendAt) : null;
             const isNewDate = currentDate !== prevDate;
-
             return (
-              <div key={msg.messageId} ref={index === messages.length - 1 ? scrollRef : null}>
+              <div key={msg.messageId}>
                 {isNewDate && (
                   <div className="mx-auto mt-2 mb-4 w-fit rounded-2xl bg-[var(--gray-100)] px-4 py-1 text-sm font-semibold text-[var(--gray-400)]">
                     {currentDate}
@@ -193,6 +340,14 @@ export default function ChatsIndividualPage() {
                     sentAt={msg.messageSendAt}
                     partnerId={partner?.partnerId ?? null}
                     relationType={partner?.relationType ?? null}
+                    onLongPress={() => {
+                      if (!msg.messageId || !msg.messageSenderId) return;
+                      handleReport({
+                        messageId: msg.messageId,
+                        messageContent: msg.messageContents,
+                        reportedUserId: msg.messageSenderId,
+                      });
+                    }}
                   />
                 ) : (
                   <SenderMessage
@@ -207,20 +362,22 @@ export default function ChatsIndividualPage() {
           <div ref={bottomRef} />
         </div>
       </main>
-      {isUnmatched ? (
-        <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
-          <UnavailableChannelBanner />
-          <ChatSignalInputBox
-            onSend={handleSend}
-            disabled={true}
-            placeholder="더 이상 메세지를 보낼 수 없습니다"
-          />
-        </div>
-      ) : (
-        <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
-          <ChatSignalInputBox onSend={handleSend} placeholder="메세지를 입력해주세요" />
-        </div>
-      )}
+      <div className="absolute bottom-14 w-full bg-white px-5 pt-2 pb-2">
+        {isUnmatched && <UnavailableChannelBanner />}
+        <ChatSignalInputBox
+          onSend={handleSend}
+          disabled={isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
+          placeholder={
+            isUnmatched
+              ? '더 이상 메세지를 보낼 수 없습니다'
+              : isWaitingModalVisible
+                ? '메세지를 입력해주세요'
+                : isMatchingResponseModalVisible
+                  ? '메세지를 입력해주세요'
+                  : '메세지를 입력해주세요'
+          }
+        />
+      </div>
     </>
   );
 }
