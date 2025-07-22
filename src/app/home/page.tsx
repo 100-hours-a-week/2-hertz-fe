@@ -9,8 +9,8 @@ import { useRegisterPushToken } from '@/hooks/useRegisterPushToken';
 export default function HomePage() {
   return (
     <>
-      <ClickWebPushBanner />
       <Header showNotificationButton={true} />
+      <ClickWebPushBanner />
       <BannerSection />
       <MatchTypeSelector />
     </>
