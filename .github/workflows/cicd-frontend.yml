@@ -4,11 +4,12 @@ on:
   pull_request:
     types: [closed] # PR이 닫혔을 때 (병합 포함)
     branches:
-      - main # main 브랜치로 Merge 시 -> PROD 환경에 배포
+      # - main # main 브랜치로 Merge 시 -> PROD 환경에 배포
       - develop # develop 브랜치로 Merge 시 -> DEV 환경에 배포
     paths-ignore:
       - "Dockerfie"
       - ".github/workflows/**"
+
 
   # ✅ 수동 `실행 트리거 추가
   workflow_dispatch:
@@ -20,127 +21,10 @@ on:
         type: choice
         options:
           - DEV
-          - PROD
+          # - PROD
 
 jobs:
-  # frontend-ci:
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     # ✅ act 테스트용 필요 패키지 설치
-  #     # - name: Install required tools
-  #     #   run: |
-  #     #     apt-get update && apt-get install -y awscli curl jq
-
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
-
-  #     - name: Configure AWS credentials
-  #       uses: aws-actions/configure-aws-credentials@v2
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: ${{ secrets.AWS_REGION }}
-
-  #     - name: Set environment variables from SSM
-  #       run: |
-  #         load_param() {
-  #           VALUE=$(aws ssm get-parameter --name "$1" --with-decryption --query "Parameter.Value" --output text)
-  #           echo "::add-mask::$VALUE"
-  #           echo "$2=$VALUE" >> $GITHUB_ENV
-  #         }
-
-  #         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-  #           echo "💥 trigger: [workflow_dispatch]"
-  #           if [[ "${{ github.event.inputs.env }}" == "PROD" ]]; then
-  #             echo "BRANCH=main" >> $GITHUB_ENV
-  #             BRANCH=main
-  #           else
-  #             echo "BRANCH=develop" >> $GITHUB_ENV
-  #             BRANCH=develop
-  #           fi
-  #         else
-  #           echo "💥 trigger: [PR merge]"
-  #           echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
-  #           BRANCH="${{ github.ref_name }}"
-  #         fi
-  #         echo "🍀 BRANCH=$BRANCH"
-
-  #         if [[ "$BRANCH" == "main" ]]; then
-  #           echo "ENV=PROD" >> $GITHUB_ENV
-  #           load_param "/global/nextjs/NEXT_PUBLIC_API_BASE_URL_PROD" NEXT_PUBLIC_API_BASE_URL
-  #         else
-  #           echo "ENV=DEV" >> $GITHUB_ENV
-  #           load_param "/global/nextjs/NEXT_PUBLIC_API_BASE_URL_DEV" NEXT_PUBLIC_API_BASE_URL
-  #         fi
-
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: "18"
-  #         cache: "npm" # npm 캐시 활성화
-
-  #     # npm 캐시 최적화
-  #     - name: Cache npm dependencies
-  #       uses: actions/cache@v3
-  #       id: npm-cache
-  #       with:
-  #         path: ~/.npm
-  #         key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-npm-
-
-  #     # Next.js 빌드 캐시
-  #     - name: Cache Next.js build
-  #       uses: actions/cache@v3
-  #       id: nextjs-cache
-  #       with:
-  #         path: |
-  #           .next/cache
-  #         key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-nextjs-
-
-  #     - name: Install dependencies
-  #       if: steps.npm-cache.outputs.cache-hit != 'true'
-  #       run: npm ci
-
-  #     #    - name: Run Unit Tests (Jest)
-  #     #      run: npm run test
-
-  #     - name: Build Next.js App
-  #       env:
-  #         NEXT_PUBLIC_API_BASE_URL: ${{ env.NEXT_PUBLIC_API_BASE_URL }}
-  #       run: npm run build
-
-  #     #    # 6. 빌드 결과 아티팩트 업로드 (.next 폴더)
-  #     #    - name: Upload .next Build Artifact
-  #     #      uses: actions/upload-artifact@v3
-  #     #      with:
-  #     #        name: nextjs-app
-  #     #        path: .next
-
-  #     # 7. Discord 알림 전송 (성공/실패 관계없이 항상 실행됨)
-  #     - name: Send failure notification
-  #       if: failure()
-  #       run: |
-  #         echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-  #         WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-  #         curl -H "Content-Type: application/json" \
-  #             -X POST \
-  #             -d "{\"content\": \"❌ [FE CI 실패] **${{ env.ENV }}** Frontend 서버 (브랜치: \`${{ env.BRANCH }}\`)\\n🔖 Commit: ${{ env.COMMIT_HASH }}\\n⚠️ [워크플로우 로그 보기]($WORKFLOW_URL)\"}" \
-  #             ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
-
-  #     - name: Send success notification
-  #       if: success()
-  #       run: |
-  #         curl -H "Content-Type: application/json" \
-  #              -X POST \
-  #              -d "{\"content\": \"🚀 [FE CI 완료] **${{ env.ENV }}** Frontend 서버 (브랜치: \`${{ env.BRANCH }}\`)\\n🔖 Commit: ${{ env.COMMIT_HASH }}\"}" \
-  #              ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
-
   frontend-cd:
-    # needs: frontend-ci
     runs-on: ubuntu-latest
     steps:
       # # ✅ act 테스트용 필요 패키지 설치 (명령어: act workflow_dispatch -W .github/workflows/cicd-frontend.yml -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest)
@@ -178,6 +62,8 @@ jobs:
           BRANCH="${{ github.ref_name }}"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           if [[ "$BRANCH" == "main" ]]; then
+            echo "⚠️ 해당 스크립트에서 사용하는 PROD는 SSH 서버로 더 이상 사용하지 않습니다."
+            exit 1
             echo "ENV=PROD" >> $GITHUB_ENV
             load_param "/global/gcp/PROD_GCP_HOST" HOST
             load_param "/global/gcp/PROD_GCP_INSTANCE" INSTANCE
@@ -276,16 +162,16 @@ jobs:
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
               -X POST \
-              -d "{\"content\": \"❌ [FE 배포 실패] **${{ env.ENV }}** Frontend 서버 (브랜치: \`${{ env.BRANCH }}\`)\\n🔖 Commit: ${{ env.COMMIT_HASH }}\\n⚠️ [워크플로우 로그 보기]($WORKFLOW_URL)\"}" \
+              -d "{\"content\": \"❌ **[${{ env.ENV }} 환경]** FE 배포 실패(자동)\\n> Branch: \`${{ env.BRANCH }}\`)\\n> Commit: ${{ env.COMMIT_HASH }}\\n> [워크플로우 로그 보기]($WORKFLOW_URL)\"}" \
               ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
 
       - name: Send success notification
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"content\": \"🚀 [FE 배포 완료] **${{ env.ENV }}** Frontend 서버 (브랜치: \`${{ env.BRANCH }}\`)\\n🔖 Commit: ${{ env.COMMIT_HASH }}\"}" \
-               ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
+              -X POST \
+              -d "{\"content\": \"🚀 **[${{ env.ENV }} 환경]** FE 배포 완료(자동)\\n> Branch: \`${{ env.BRANCH }}\`)\\n> Commit: ${{ env.COMMIT_HASH }}\"}" \
+              ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
 
   frontend-rollback:
     needs: frontend-cd
@@ -411,7 +297,7 @@ jobs:
         run: |
           curl -H "Content-Type: application/json" \
             -X POST \
-            -d "{\"content\": \"✅ [FE 롤백 완료] \`${{ env.ENV }}\` 환경\"}" \
+            -d "{\"content\": \"✅ **[${{ env.ENV }} 환경]** FE 롤백 완료(자동)\"}" \
             ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
 
       - name: Send failure notification
@@ -419,5 +305,5 @@ jobs:
         run: |
           curl -H "Content-Type: application/json" \
             -X POST \
-            -d "{\"content\": \"❌ [FE 롤백 실패] \`${{ env.ENV }}\` 환경\"}" \
+            -d "{\"content\": \"❌ **[${{ env.ENV }} 환경]** FE 롤백 실패(자동)\"}" \
             ${{ secrets.DISCORD_WEBHOOK_CICD_URL }}
