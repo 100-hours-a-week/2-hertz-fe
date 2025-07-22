@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
-import { useFormContext, UseFormReturn } from 'react-hook-form';
 import { oneLineIntroSchema } from '@/lib/schema/mypageValidation';
 import TextareaAutosize from 'react-textarea-autosize';
 
@@ -15,9 +14,6 @@ interface UserProfileCardProps {
   gender: string;
   onRefresh?: () => void;
   onSaveIntroduction?: (newIntro: string) => void;
-}
-interface FormValues {
-  oneLineIntroduction: string;
 }
 
 export default function UserProfileCard({
@@ -131,10 +127,10 @@ export default function UserProfileCard({
           ) : (
             <Button
               size="sm"
-              className="rounded-2xl bg-[var(--gray-300)] text-xs"
+              className="rounded-2xl bg-[var(--gray-400)] text-xs"
               onClick={() => setIsEditing(true)}
             >
-              수정
+              수정하기
             </Button>
           )}
         </div>
