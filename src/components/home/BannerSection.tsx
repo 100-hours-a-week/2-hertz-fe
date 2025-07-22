@@ -6,10 +6,11 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa6';
 
 const bannerImages = [
-  '/images/banner1.png',
-  '/images/banner2.png',
-  '/images/banner3.png',
-  '/images/banner4.png',
+  '/images/tuny1.png',
+  '/images/tuny2.png',
+  '/images/tuny3.png',
+  '/images/tuny4.png',
+  '/images/tuny5.png',
 ];
 
 export default function BannerSection() {

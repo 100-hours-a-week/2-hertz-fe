@@ -3,6 +3,7 @@
 import { messaging, getToken, isSupported } from '@/lib/firebase';
 import { postWebpushSubscribe } from '@/lib/api/user';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY!;
 
@@ -47,10 +48,11 @@ export default function ClickWebPushBanner() {
   };
   return (
     <div
-      className="cursor-pointer rounded-md bg-blue-500 p-4 text-white hover:bg-blue-600"
+      className="flex cursor-pointer items-center gap-2 rounded-md bg-[var(--gray-100)] p-4 px-8 text-sm font-medium text-[var(--gray-400)]"
       onClick={handleClick}
     >
-      <p>🔔 웹 푸시 알림을 받고 싶다면 여기를 클릭하세요</p>
+      <Image src="/images/bell.png" alt="bell-icon" width={16} height={18} />
+      <p> 웹 푸시 알림을 받고 싶다면 여기를 클릭하세요</p>
     </div>
   );
 }
