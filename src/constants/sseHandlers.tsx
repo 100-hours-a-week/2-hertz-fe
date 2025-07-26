@@ -264,11 +264,9 @@ export const getSSEHandlers = ({
     },
 
     'new-signal-reception': (data: unknown) => {
-      const { partnerNickname } = data as { partnerNickname: string };
-      toast(`${partnerNickname}님에게 첫 메세지가 도착했어요!`, {
-        icon: '💬',
-        duration: 4000,
-      });
+      const message = data as NewMessageType;
+      newMessageStore.showToast(message);
+      queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
     },
   };
 };
