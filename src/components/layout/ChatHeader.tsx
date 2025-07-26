@@ -1,9 +1,10 @@
 'use client';
 
-import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useRouter } from 'next/navigation';
-import { FaAngleLeft, FaAngleDown } from 'react-icons/fa6';
+import { FaAngleLeft, FaAngleDown } from 'react-icons/fa';
 import { LuLogOut } from 'react-icons/lu';
+import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
+import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 
 interface ChatHeaderProps {
   title: string;
@@ -14,6 +15,7 @@ interface ChatHeaderProps {
 export default function ChatHeader({ title, partnerId, onLeave }: ChatHeaderProps) {
   const router = useRouter();
   const closeModal = useWaitingModalStore((state) => state.closeModal);
+  const { temporarilyHideModal } = useMatchingResponseStore();
 
   const handleNicknameClick = () => {
     router.push(`/profile/${partnerId}`);
@@ -21,6 +23,13 @@ export default function ChatHeader({ title, partnerId, onLeave }: ChatHeaderProp
 
   const handleBack = () => {
     closeModal();
+    // 현재 채팅방 ID를 URL에서 추출하여 모달 임시 숨김
+    const currentPath = window.location.pathname;
+    const match = currentPath.match(/\/chat\/individual\/(\d+)/);
+    if (match) {
+      const channelRoomId = Number(match[1]);
+      temporarilyHideModal(channelRoomId);
+    }
     router.back();
   };
   return (
