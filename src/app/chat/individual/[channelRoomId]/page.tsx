@@ -26,7 +26,6 @@ import { AxiosError } from 'axios';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
-import { useSSEReconnector } from '@/hooks/useSSEReconnector';
 import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
 
 export default function ChatsIndividualPage() {
@@ -34,20 +33,7 @@ export default function ChatsIndividualPage() {
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
   const router = useRouter();
-  const { ref: scrollRef, inView } = useInView();
-
-  const reconnectSSE = useSSEReconnector();
-  const [reconnectKey, setReconnectKey] = useState(Date.now());
-  useEffect(() => {
-    setReconnectKey(Date.now());
-    console.log('💬 parsedChannelRoomId: ', parsedChannelRoomId);
-  }, [parsedChannelRoomId]);
-
-  useEffect(() => {
-    if (isChannelRoomIdValid) {
-      reconnectSSE();
-    }
-  }, [parsedChannelRoomId, reconnectSSE, isChannelRoomIdValid]);
+  const { inView } = useInView();
 
   const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
     [],
@@ -65,7 +51,7 @@ export default function ChatsIndividualPage() {
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       refetchOnMount: true,
-      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, reconnectKey],
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage],
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
         const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
@@ -81,7 +67,7 @@ export default function ChatsIndividualPage() {
       initialPageParam: 0,
       enabled: isChannelRoomIdValid,
       staleTime: 0,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       refetchOnReconnect: false,
       retry: false,
     });
@@ -182,17 +168,19 @@ export default function ChatsIndividualPage() {
     }
   }, [isError, error, router]);
 
-  const relationType = useChannelRoomStore((state) => state.relationTypeMap[parsedChannelRoomId]);
   const partner = data?.pages?.[0]?.data;
-  const hasResponded = useMatchingResponseStore((state) =>
-    state.getHasResponded(parsedChannelRoomId),
-  );
 
   const relationTypeFromStore = useChannelRoomStore((state) =>
     state.getRelationType(parsedChannelRoomId),
   );
   const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
-  const isUnmatched = effectiveRelationType === 'UNMATCHED' && hasResponded;
+  const isUnmatched = effectiveRelationType === 'UNMATCHED';
+
+  useEffect(() => {
+    if (partner?.relationType) {
+      useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
+    }
+  }, [partner?.relationType, parsedChannelRoomId]);
 
   const isFetchingRef = useRef(false);
   useEffect(() => {

@@ -223,7 +223,7 @@ export const getSSEHandlers = ({
 
       try {
         await queryClient.invalidateQueries({
-          queryKey: ['channelRoomDetail', channelRoomId],
+          queryKey: ['channelRoom', channelRoomId],
         });
       } catch (e) {
         console.error('채팅방 정보를 갱신하는 데 실패했습니다:', e);
@@ -238,7 +238,7 @@ export const getSSEHandlers = ({
 
       useChannelRoomStore.getState().setRelationType(channelRoomId, 'UNMATCHED');
 
-      queryClient.invalidateQueries({ queryKey: ['channelRoomDetail', channelRoomId] });
+      queryClient.invalidateQueries({ queryKey: ['channelRoom', channelRoomId] });
     },
     'nav-new-message': () => {
       navNewMessageStore.setHasNewMessage(true);
@@ -264,11 +264,9 @@ export const getSSEHandlers = ({
     },
 
     'new-signal-reception': (data: unknown) => {
-      const { partnerNickname } = data as { partnerNickname: string };
-      toast(`${partnerNickname}님에게 첫 메세지가 도착했어요!`, {
-        icon: '💬',
-        duration: 4000,
-      });
+      const message = data as NewMessageType;
+      newMessageStore.showToast(message);
+      queryClient.invalidateQueries({ queryKey: ['channelRooms'] });
     },
   };
 };

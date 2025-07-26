@@ -7,6 +7,8 @@ interface NewMessage {
   message: string;
   messageSendAt: string;
   partnerProfileImage: string;
+  relationType: string;
+  lastPageNumber: number;
 }
 
 interface NewMessageStore {

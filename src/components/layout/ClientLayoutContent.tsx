@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Header from '@/components/layout/Header';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
@@ -28,6 +28,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const [mounted, setMounted] = useState(false);
   const [isHiddenUI, setIsHiddenUI] = useState(false);
   const { setReconnect } = useSSEStore();
+  const prevPathnameRef = useRef(pathname);
 
   const confirmModalStore = useConfirmModalStore.getState();
   const matchingResponseStore = useMatchingResponseStore.getState();
@@ -36,20 +37,90 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const newAlarmStore = useNewAlarmStore.getState();
   const newMessageStore = useNewMessageStore.getState();
 
+  // 전역 페이지 이동 감지하여 매칭 응답 모달 관리
+  useEffect(() => {
+    const currentPath = pathname;
+    const prevPath = prevPathnameRef.current;
+
+    const chatRoomPattern = /^\/chat\/individual\/(\d+)/;
+    const prevChatMatch = prevPath?.match(chatRoomPattern);
+    const currentChatMatch = currentPath?.match(chatRoomPattern);
+
+    if (prevChatMatch && !currentChatMatch) {
+      // 채팅방에서 다른 페이지로 이동
+      const channelRoomId = Number(prevChatMatch[1]);
+
+      // ConfirmModal 상태 확인 및 임시 숨김
+      const confirmModalState = useConfirmModalStore.getState();
+
+      if (confirmModalState.isOpen) {
+        confirmModalStore.temporarilyHideModal(channelRoomId);
+      }
+
+      // WaitingModal 상태 확인 및 임시 숨김
+      const waitingModalState = useWaitingModalStore.getState();
+
+      if (waitingModalState.isOpen) {
+        waitingModalStore.temporarilyHideModal(channelRoomId);
+      }
+      // MatchingResponseModal 상태 확인 및 임시 숨김
+      const currentModalState = useMatchingResponseStore.getState();
+
+      if (currentModalState.isModalOpen) {
+        matchingResponseStore.temporarilyHideModal(channelRoomId);
+      }
+    } else if (!prevChatMatch && currentChatMatch) {
+      // 다른 페이지에서 채팅방으로 이동
+      const channelRoomId = Number(currentChatMatch[1]);
+
+      // ConfirmModal 복원
+      const confirmModalState = useConfirmModalStore.getState();
+
+      if (
+        confirmModalState.isTemporarilyHidden &&
+        confirmModalState.hiddenChannelRoomId === channelRoomId
+      ) {
+        confirmModalStore.restoreModal(channelRoomId);
+      }
+
+      // WaitingModal 복원
+      const waitingModalState = useWaitingModalStore.getState();
+
+      if (
+        waitingModalState.isTemporarilyHidden &&
+        waitingModalState.hiddenChannelRoomId === channelRoomId
+      ) {
+        waitingModalStore.restoreModal(channelRoomId);
+      }
+
+      // MatchingResponseModal 복원
+      const currentModalState = useMatchingResponseStore.getState();
+
+      if (
+        currentModalState.isModalTemporarilyHidden &&
+        currentModalState.hiddenChannelRoomId === channelRoomId
+      ) {
+        matchingResponseStore.restoreModal(channelRoomId);
+      }
+    }
+
+    prevPathnameRef.current = currentPath;
+  }, [pathname, confirmModalStore, matchingResponseStore, waitingModalStore]);
+
   const shouldConnectSSE =
     pathname && !EXCLUDE_PATHS.some((excludedPath) => pathname.startsWith(excludedPath));
   const isPathValid = typeof pathname === 'string' && pathname.length > 0;
 
   const handlers = getSSEHandlers({
-    handleAccept: async (channelRoomId, partnerNickname) => {
+    handleAccept: async (channelRoomId) => {
       await postMatchingAccept({ channelRoomId });
-      toast.success(`${partnerNickname}님과 매칭이 완료됐어요!`, {
+      toast.success(`매칭이 완료됐어요!`, {
         icon: '🎉',
         id: 'matching-success',
       });
     },
 
-    handleReject: async (channelRoomId, partnerNickname) => {
+    handleReject: async (channelRoomId) => {
       await postMatchingReject({ channelRoomId });
       toast('매칭을 거절했어요', { icon: '👋', id: 'matching-reject' });
     },
