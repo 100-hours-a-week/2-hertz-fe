@@ -223,7 +223,7 @@ export const getSSEHandlers = ({
 
       try {
         await queryClient.invalidateQueries({
-          queryKey: ['channelRoomDetail', channelRoomId],
+          queryKey: ['channelRoom', channelRoomId],
         });
       } catch (e) {
         console.error('채팅방 정보를 갱신하는 데 실패했습니다:', e);
@@ -238,7 +238,7 @@ export const getSSEHandlers = ({
 
       useChannelRoomStore.getState().setRelationType(channelRoomId, 'UNMATCHED');
 
-      queryClient.invalidateQueries({ queryKey: ['channelRoomDetail', channelRoomId] });
+      queryClient.invalidateQueries({ queryKey: ['channelRoom', channelRoomId] });
     },
     'nav-new-message': () => {
       navNewMessageStore.setHasNewMessage(true);
