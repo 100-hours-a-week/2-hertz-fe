@@ -3,6 +3,19 @@ export const noop = () => {};
 
 interface ConfirmModalState {
   isOpen: boolean;
+  isTemporarilyHidden: boolean;
+  hiddenChannelRoomId: number | null;
+  hiddenModalData: Omit<
+    ConfirmModalState,
+    | 'isOpen'
+    | 'isTemporarilyHidden'
+    | 'hiddenChannelRoomId'
+    | 'hiddenModalData'
+    | 'openModal'
+    | 'closeModal'
+    | 'temporarilyHideModal'
+    | 'restoreModal'
+  > | null;
   title: React.ReactNode;
   description?: React.ReactNode;
   imageSrc?: string;
@@ -11,12 +24,29 @@ interface ConfirmModalState {
   onConfirm: () => void;
   onCancel?: () => void;
   variant?: 'quit' | 'confirm'; // quit: 로그아웃, 탈퇴 / confirm: 채널 나가기, 매칭 동의
-  openModal: (props: Omit<ConfirmModalState, 'isOpen' | 'openModal' | 'closeModal'>) => void;
+  openModal: (
+    props: Omit<
+      ConfirmModalState,
+      | 'isOpen'
+      | 'isTemporarilyHidden'
+      | 'hiddenChannelRoomId'
+      | 'hiddenModalData'
+      | 'openModal'
+      | 'closeModal'
+      | 'temporarilyHideModal'
+      | 'restoreModal'
+    >,
+  ) => void;
   closeModal: () => void;
+  temporarilyHideModal: (channelRoomId: number) => void;
+  restoreModal: (channelRoomId: number) => void;
 }
 
-export const useConfirmModalStore = create<ConfirmModalState>((set) => ({
+export const useConfirmModalStore = create<ConfirmModalState>((set, get) => ({
   isOpen: false,
+  isTemporarilyHidden: false,
+  hiddenChannelRoomId: null,
+  hiddenModalData: null,
   title: null,
   description: undefined,
   imageSrc: undefined,
@@ -28,11 +58,15 @@ export const useConfirmModalStore = create<ConfirmModalState>((set) => ({
   openModal: (props) =>
     set({
       isOpen: true,
+      isTemporarilyHidden: false,
       ...props,
     }),
   closeModal: () =>
     set({
       isOpen: false,
+      isTemporarilyHidden: false,
+      hiddenChannelRoomId: null,
+      hiddenModalData: null,
       title: null,
       description: undefined,
       imageSrc: undefined,
@@ -42,4 +76,40 @@ export const useConfirmModalStore = create<ConfirmModalState>((set) => ({
       onConfirm: noop,
       onCancel: noop,
     }),
+  temporarilyHideModal: (channelRoomId) => {
+    const state = get();
+    if (state.isOpen) {
+      set({
+        isOpen: false,
+        isTemporarilyHidden: true,
+        hiddenChannelRoomId: channelRoomId,
+        hiddenModalData: {
+          title: state.title,
+          description: state.description,
+          imageSrc: state.imageSrc,
+          confirmText: state.confirmText,
+          cancelText: state.cancelText,
+          onConfirm: state.onConfirm,
+          onCancel: state.onCancel,
+          variant: state.variant,
+        },
+      });
+    }
+  },
+  restoreModal: (channelRoomId) => {
+    const state = get();
+    if (
+      state.isTemporarilyHidden &&
+      state.hiddenChannelRoomId === channelRoomId &&
+      state.hiddenModalData
+    ) {
+      set({
+        isOpen: true,
+        isTemporarilyHidden: false,
+        hiddenChannelRoomId: null,
+        ...state.hiddenModalData,
+        hiddenModalData: null,
+      });
+    }
+  },
 }));

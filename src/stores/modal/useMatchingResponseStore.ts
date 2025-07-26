@@ -3,8 +3,12 @@ import { create } from 'zustand';
 interface MatchingResponseState {
   hasRespondedMap: Record<number, boolean>;
   isModalOpen: boolean;
+  isModalTemporarilyHidden: boolean;
+  hiddenChannelRoomId: number | null;
   openModal: () => void;
   closeModal: () => void;
+  temporarilyHideModal: (channelRoomId: number) => void;
+  restoreModal: (channelRoomId: number) => void;
   setHasResponded: (channelRoomId: number, value: boolean) => void;
   getHasResponded: (channelRoomId: number) => boolean;
   reset: (channelRoomId?: number) => void;
@@ -25,9 +29,34 @@ const getInitialState = (): Record<number, boolean> => {
 export const useMatchingResponseStore = create<MatchingResponseState>((set, get) => ({
   hasRespondedMap: getInitialState(),
   isModalOpen: false,
+  isModalTemporarilyHidden: false,
+  hiddenChannelRoomId: null,
 
-  openModal: () => set({ isModalOpen: true }),
-  closeModal: () => set({ isModalOpen: false }),
+  openModal: () => set({ isModalOpen: true, isModalTemporarilyHidden: false }),
+  closeModal: () =>
+    set({ isModalOpen: false, isModalTemporarilyHidden: false, hiddenChannelRoomId: null }),
+
+  temporarilyHideModal: (channelRoomId) => {
+    const { isModalOpen } = get();
+    if (isModalOpen) {
+      set({
+        isModalOpen: false,
+        isModalTemporarilyHidden: true,
+        hiddenChannelRoomId: channelRoomId,
+      });
+    }
+  },
+
+  restoreModal: (channelRoomId) => {
+    const { isModalTemporarilyHidden, hiddenChannelRoomId } = get();
+    if (isModalTemporarilyHidden && hiddenChannelRoomId === channelRoomId) {
+      set({
+        isModalOpen: true,
+        isModalTemporarilyHidden: false,
+        hiddenChannelRoomId: null,
+      });
+    }
+  },
 
   setHasResponded: (channelRoomId, value) => {
     const updated = { ...get().hasRespondedMap, [channelRoomId]: value };
@@ -42,7 +71,12 @@ export const useMatchingResponseStore = create<MatchingResponseState>((set, get)
 
     if (channelRoomId === undefined) {
       localStorage.removeItem(STORAGE_KEY);
-      set({ hasRespondedMap: {} });
+      set({
+        hasRespondedMap: {},
+        isModalOpen: false,
+        isModalTemporarilyHidden: false,
+        hiddenChannelRoomId: null,
+      });
       return;
     }
 
