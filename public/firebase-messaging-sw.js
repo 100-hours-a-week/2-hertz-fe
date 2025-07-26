@@ -17,7 +17,6 @@ self.addEventListener('push', function (event) {
         self.registration.showNotification(title, {
           body,
           icon: 'https://hertz-tuning.com/icons/favicon.png',
-          tag: 'tuning-push',
           data: {
             url: 'https://hertz-tuning.com',
           },
