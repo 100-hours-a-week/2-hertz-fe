@@ -16,7 +16,7 @@ self.addEventListener('push', function (event) {
 
         self.registration.showNotification(title, {
           body,
-          icon: 'https://hertz-tuning.com/icons/favicon.png',
+          icon: '/icons/favicon.png',
           data: {
             url: 'https://hertz-tuning.com',
           },
@@ -26,4 +26,12 @@ self.addEventListener('push', function (event) {
       }
     })(),
   );
+});
+
+self.addEventListener('notificationclick', function (event) {
+  console.log('[ServiceWorker] Notification click received.');
+
+  event.notification.close();
+
+  event.waitUntil(clients.openWindow(event.notification.data.url));
 });
