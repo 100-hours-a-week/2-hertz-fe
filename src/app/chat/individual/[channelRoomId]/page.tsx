@@ -217,7 +217,6 @@ export default function ChatsIndividualPage() {
   const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
   const isUnmatched = effectiveRelationType === 'UNMATCHED';
 
-  // UI 상태 디버깅용 로그
   useEffect(() => {
     console.log('🎯 현재 UI 상태:', {
       relationTypeFromStore,

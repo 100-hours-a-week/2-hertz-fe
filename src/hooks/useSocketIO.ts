@@ -100,7 +100,6 @@ export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
       return;
     }
 
-    // console.log('📤 메시지 전송:', { channelRoomId, payload });
     socketRef.current.emit('send_message', payload);
   };
 
