@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 
@@ -34,6 +34,7 @@ export default function ChatsIndividualPage() {
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
   const router = useRouter();
   const { inView } = useInView();
+  const queryClient = useQueryClient();
 
   const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
     [],
@@ -43,6 +44,8 @@ export default function ChatsIndividualPage() {
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page')) || 0;
 
+  const mountTimestamp = useMemo(() => Date.now(), []);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
@@ -50,8 +53,8 @@ export default function ChatsIndividualPage() {
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
-      refetchOnMount: true,
-      queryKey: ['channelRoom', parsedChannelRoomId, initialPage],
+      refetchOnMount: 'always',
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
         const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
@@ -67,6 +70,7 @@ export default function ChatsIndividualPage() {
       initialPageParam: 0,
       enabled: isChannelRoomIdValid,
       staleTime: 0,
+      gcTime: 0,
       refetchOnWindowFocus: true,
       refetchOnReconnect: false,
       retry: false,
@@ -115,18 +119,29 @@ export default function ChatsIndividualPage() {
         case 'receive_message': {
           const { messageId, senderId, roomId, message, sendAt } = data.data;
           const isMine = senderId === myUserIdRef.current;
+
           if (!isMine) sendMarkAsRead({ roomId });
           const cleanedSendAt =
             typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
           setMessages((prev) => {
-            const alreadyExists = prev.some(
-              (msg) =>
-                msg.messageSenderId === senderId &&
-                msg.messageContents === message &&
-                msg.messageSendAt === cleanedSendAt,
-            );
-            if (alreadyExists) return prev;
+            // messageId가 있는 경우 messageId로 중복 체크
+            if (messageId) {
+              const alreadyExists = prev.some((msg) => msg.messageId === messageId);
+              if (alreadyExists) return prev;
+            } else {
+              // messageId가 없는 경우 senderId, message, 시간으로 중복 체크
+              const alreadyExists = prev.some(
+                (msg) =>
+                  msg.messageSenderId === senderId &&
+                  msg.messageContents === message &&
+                  Math.abs(
+                    new Date(msg.messageSendAt).getTime() - new Date(cleanedSendAt).getTime(),
+                  ) < 1000,
+              );
+              if (alreadyExists) return prev;
+            }
+
             return [
               ...prev,
               {
@@ -137,6 +152,32 @@ export default function ChatsIndividualPage() {
               },
             ];
           });
+          break;
+        }
+        case 'relation_type_changed': {
+          const { channelRoomId, relationType } = data.data;
+
+          console.log('🔄 소켓을 통한 관계 타입 변경 감지:', {
+            channelRoomId,
+            relationType,
+            currentRoomId: parsedChannelRoomId,
+          });
+
+          if (channelRoomId === parsedChannelRoomId) {
+            console.log('🎯 현재 채팅방의 관계 타입 변경 - 즉시 UI 업데이트');
+
+            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
+
+            queryClient.invalidateQueries({
+              predicate: (query) => {
+                return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+              },
+            });
+
+            if (relationType === 'MATCHING') {
+              toast.success('🎉 매칭이 완료됐어요!', { id: 'socket-matching-success' });
+            }
+          }
           break;
         }
       }
@@ -177,10 +218,48 @@ export default function ChatsIndividualPage() {
   const isUnmatched = effectiveRelationType === 'UNMATCHED';
 
   useEffect(() => {
+    console.log('🎯 현재 UI 상태:', {
+      relationTypeFromStore,
+      partnerRelationType: partner?.relationType,
+      effectiveRelationType,
+      isUnmatched,
+      channelRoomId: parsedChannelRoomId,
+    });
+  }, [
+    relationTypeFromStore,
+    partner?.relationType,
+    effectiveRelationType,
+    isUnmatched,
+    parsedChannelRoomId,
+  ]);
+
+  useEffect(() => {
     if (partner?.relationType) {
+      console.log('👥 파트너 relationType 업데이트:', {
+        partnerId: partner.partnerId,
+        relationType: partner.relationType,
+        channelRoomId: parsedChannelRoomId,
+      });
       useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
     }
   }, [partner?.relationType, parsedChannelRoomId]);
+
+  useEffect(() => {
+    console.log('🔍 relationType 상태 체크:', {
+      relationTypeFromStore,
+      partnerRelationType: partner?.relationType,
+      channelRoomId: parsedChannelRoomId,
+    });
+
+    if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
+      console.log('🎉 매칭 성공 감지 - 쿼리 무효화로 UI 업데이트');
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === parsedChannelRoomId;
+        },
+      });
+    }
+  }, [relationTypeFromStore, partner?.relationType, parsedChannelRoomId, queryClient]);
 
   const isFetchingRef = useRef(false);
   useEffect(() => {
