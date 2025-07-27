@@ -102,10 +102,26 @@ export const getSSEHandlers = ({
 
             switch (response.code) {
               case 'MATCH_SUCCESS':
-                await queryClient.invalidateQueries({
-                  queryKey: ['channelRoomDetail', channelRoomId],
-                });
+                console.log('🎉 매칭 수락 API에서 MATCH_SUCCESS 응답 수신:', { channelRoomId });
+
+                toast.success('🎉 매칭이 완료됐어요!', { id: 'api-match-success' });
+
                 useChannelRoomStore.getState().setRelationType(channelRoomId, 'MATCHING');
+                console.log('📝 채널룸 스토어에 MATCHING 상태 설정 완료');
+
+                await queryClient.invalidateQueries({
+                  predicate: (query) => {
+                    return (
+                      query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId
+                    );
+                  },
+                });
+                console.log('🔄 쿼리 무효화 완료');
+
+                await queryClient.invalidateQueries({
+                  queryKey: ['channelRooms'],
+                });
+
                 useWaitingModalStore.getState().reset();
                 break;
               case 'MATCH_FAILED':
@@ -191,6 +207,24 @@ export const getSSEHandlers = ({
               handleAccept(channelRoomId, partnerNickname);
 
               if (response.code === 'MATCH_SUCCESS') {
+                console.log('🎉 매칭 확인 후 MATCH_SUCCESS 응답 수신:', { channelRoomId });
+
+                toast.success('🎉 매칭이 완료됐어요!', { id: 'confirmed-match-success' });
+
+                useChannelRoomStore.getState().setRelationType(channelRoomId, 'MATCHING');
+
+                await queryClient.invalidateQueries({
+                  predicate: (query) => {
+                    return (
+                      query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId
+                    );
+                  },
+                });
+
+                await queryClient.invalidateQueries({
+                  queryKey: ['channelRooms'],
+                });
+
                 waitingModalStore.reset();
               }
             }
@@ -214,16 +248,25 @@ export const getSSEHandlers = ({
 
     'matching-success': async (data: unknown) => {
       const { partnerNickname, channelRoomId } = data as MatchingPayload;
+      console.log('🎉 매칭 성공 SSE 이벤트 수신:', { partnerNickname, channelRoomId });
+
       useWaitingModalStore.getState().reset();
-      toast.success(`🎉 ${partnerNickname}님과 매칭이 완료됐어요!`, { id: 'matching-success' });
+      toast.success(`🎉 ${partnerNickname}님과 매칭이 완료됐어요!`, { id: 'sse-matching-success' });
 
       useMatchingResponseStore.getState().reset();
 
+      console.log('📝 SSE 이벤트로 채널룸 스토어에 MATCHING 상태 설정:', channelRoomId);
       useChannelRoomStore.getState().setRelationType(channelRoomId, 'MATCHING');
 
       try {
         await queryClient.invalidateQueries({
-          queryKey: ['channelRoom', channelRoomId],
+          predicate: (query) => {
+            return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+          },
+        });
+
+        await queryClient.invalidateQueries({
+          queryKey: ['channelRooms'],
         });
       } catch (e) {
         console.error('채팅방 정보를 갱신하는 데 실패했습니다:', e);
@@ -238,7 +281,11 @@ export const getSSEHandlers = ({
 
       useChannelRoomStore.getState().setRelationType(channelRoomId, 'UNMATCHED');
 
-      queryClient.invalidateQueries({ queryKey: ['channelRoom', channelRoomId] });
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+        },
+      });
     },
     'nav-new-message': () => {
       navNewMessageStore.setHasNewMessage(true);

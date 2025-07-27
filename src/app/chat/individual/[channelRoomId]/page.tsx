@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 
@@ -34,6 +34,7 @@ export default function ChatsIndividualPage() {
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
   const router = useRouter();
   const { inView } = useInView();
+  const queryClient = useQueryClient();
 
   const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
     [],
@@ -111,24 +112,13 @@ export default function ChatsIndividualPage() {
   const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
     channelRoomId: parsedChannelRoomId,
     onMessage: (data: WebSocketIncomingMessage) => {
-      // console.log('📥 소켓 메시지 수신:', { channelRoomId: parsedChannelRoomId, data });
-
       switch (data.event) {
         case 'init_user':
-          // console.log('👤 사용자 초기화:', data.data);
           myUserIdRef.current = data.data;
           break;
         case 'receive_message': {
           const { messageId, senderId, roomId, message, sendAt } = data.data;
           const isMine = senderId === myUserIdRef.current;
-
-          // console.log('💬 메시지 수신:', {
-          //   messageId,
-          //   senderId,
-          //   roomId,
-          //   message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
-          //   isMine,
-          // });
 
           if (!isMine) sendMarkAsRead({ roomId });
           const cleanedSendAt =
@@ -162,6 +152,32 @@ export default function ChatsIndividualPage() {
               },
             ];
           });
+          break;
+        }
+        case 'relation_type_changed': {
+          const { channelRoomId, relationType } = data.data;
+
+          console.log('🔄 소켓을 통한 관계 타입 변경 감지:', {
+            channelRoomId,
+            relationType,
+            currentRoomId: parsedChannelRoomId,
+          });
+
+          if (channelRoomId === parsedChannelRoomId) {
+            console.log('🎯 현재 채팅방의 관계 타입 변경 - 즉시 UI 업데이트');
+
+            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
+
+            queryClient.invalidateQueries({
+              predicate: (query) => {
+                return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+              },
+            });
+
+            if (relationType === 'MATCHING') {
+              toast.success('🎉 매칭이 완료됐어요!', { id: 'socket-matching-success' });
+            }
+          }
           break;
         }
       }
@@ -201,11 +217,50 @@ export default function ChatsIndividualPage() {
   const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
   const isUnmatched = effectiveRelationType === 'UNMATCHED';
 
+  // UI 상태 디버깅용 로그
+  useEffect(() => {
+    console.log('🎯 현재 UI 상태:', {
+      relationTypeFromStore,
+      partnerRelationType: partner?.relationType,
+      effectiveRelationType,
+      isUnmatched,
+      channelRoomId: parsedChannelRoomId,
+    });
+  }, [
+    relationTypeFromStore,
+    partner?.relationType,
+    effectiveRelationType,
+    isUnmatched,
+    parsedChannelRoomId,
+  ]);
+
   useEffect(() => {
     if (partner?.relationType) {
+      console.log('👥 파트너 relationType 업데이트:', {
+        partnerId: partner.partnerId,
+        relationType: partner.relationType,
+        channelRoomId: parsedChannelRoomId,
+      });
       useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
     }
   }, [partner?.relationType, parsedChannelRoomId]);
+
+  useEffect(() => {
+    console.log('🔍 relationType 상태 체크:', {
+      relationTypeFromStore,
+      partnerRelationType: partner?.relationType,
+      channelRoomId: parsedChannelRoomId,
+    });
+
+    if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
+      console.log('🎉 매칭 성공 감지 - 쿼리 무효화로 UI 업데이트');
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === parsedChannelRoomId;
+        },
+      });
+    }
+  }, [relationTypeFromStore, partner?.relationType, parsedChannelRoomId, queryClient]);
 
   const isFetchingRef = useRef(false);
   useEffect(() => {

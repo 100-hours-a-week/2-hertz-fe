@@ -6,6 +6,7 @@ import type {
   ReceiveMessage,
   SendMessage,
   WebSocketIncomingMessage,
+  RelationTypeChanged,
 } from '@/types/WebSocketType';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -61,12 +62,16 @@ export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
     const handleReceiveMessage = (data: ReceiveMessage) => {
       onMessageRef.current({ event: 'receive_message', data });
     };
+    const handleRelationTypeChanged = (data: RelationTypeChanged) => {
+      onMessageRef.current({ event: 'relation_type_changed', data });
+    };
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('connect_error', handleConnectError);
     socket.on('init_user', handleInitUser);
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('relation_type_changed', handleRelationTypeChanged);
 
     return () => {
       socket.off('connect', handleConnect);
@@ -74,6 +79,7 @@ export const useSocketIO = ({ channelRoomId, onMessage }: UseSocketIOProps) => {
       socket.off('connect_error', handleConnectError);
       socket.off('init_user', handleInitUser);
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('relation_type_changed', handleRelationTypeChanged);
       socket.removeAllListeners();
       socket.disconnect();
     };
