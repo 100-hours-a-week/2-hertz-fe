@@ -109,7 +109,7 @@ export default function ChatsIndividualPage() {
     initMessages();
   }, [data, fetchNextPage, initialPage]);
 
-  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
+  const { sendSocketMessage, sendMarkAsRead, isConnected, reconnect } = useSocketIO({
     channelRoomId: parsedChannelRoomId,
     onMessage: (data: WebSocketIncomingMessage) => {
       switch (data.event) {
@@ -120,7 +120,11 @@ export default function ChatsIndividualPage() {
           const { messageId, senderId, roomId, message, sendAt } = data.data;
           const isMine = senderId === myUserIdRef.current;
 
-          if (!isMine) sendMarkAsRead({ roomId });
+          if (!isMine && isConnected) {
+            sendMarkAsRead({ roomId });
+          } else if (!isMine && !isConnected) {
+            console.log('⚠️ 읽음 처리 스킵 - 소켓 연결 없음:', { roomId });
+          }
           const cleanedSendAt =
             typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
@@ -217,42 +221,48 @@ export default function ChatsIndividualPage() {
   const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
   const isUnmatched = effectiveRelationType === 'UNMATCHED';
 
-  useEffect(() => {
-    console.log('🎯 현재 UI 상태:', {
-      relationTypeFromStore,
-      partnerRelationType: partner?.relationType,
-      effectiveRelationType,
-      isUnmatched,
-      channelRoomId: parsedChannelRoomId,
-    });
-  }, [
+  useEffect(() => {}, [
     relationTypeFromStore,
     partner?.relationType,
     effectiveRelationType,
     isUnmatched,
+    isConnected,
     parsedChannelRoomId,
   ]);
 
+  // 소켓 연결 상태 모니터링 및 재연결 시도
+  useEffect(() => {
+    if (!isConnected) {
+      console.log('⚠️ 소켓 연결 끊김 감지:', { channelRoomId: parsedChannelRoomId });
+
+      const reconnectTimer = setTimeout(() => {
+        if (!isConnected) {
+          console.log('🔄 자동 재연결 시도:', { channelRoomId: parsedChannelRoomId });
+          toast('연결이 끊어졌습니다. 재연결 시도 중...', {
+            icon: '🔄',
+            id: 'socket-reconnect',
+          });
+          reconnect();
+        }
+      }, 3000);
+
+      return () => {
+        clearTimeout(reconnectTimer);
+      };
+    } else {
+      console.log('✅ 소켓 연결 활성화:', { channelRoomId: parsedChannelRoomId });
+      toast.dismiss('socket-reconnect');
+    }
+  }, [isConnected, parsedChannelRoomId, reconnect]);
+
   useEffect(() => {
     if (partner?.relationType) {
-      console.log('👥 파트너 relationType 업데이트:', {
-        partnerId: partner.partnerId,
-        relationType: partner.relationType,
-        channelRoomId: parsedChannelRoomId,
-      });
       useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
     }
   }, [partner?.relationType, parsedChannelRoomId]);
 
   useEffect(() => {
-    console.log('🔍 relationType 상태 체크:', {
-      relationTypeFromStore,
-      partnerRelationType: partner?.relationType,
-      channelRoomId: parsedChannelRoomId,
-    });
-
     if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
-      console.log('🎉 매칭 성공 감지 - 쿼리 무효화로 UI 업데이트');
       queryClient.invalidateQueries({
         predicate: (query) => {
           return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === parsedChannelRoomId;
@@ -289,10 +299,23 @@ export default function ChatsIndividualPage() {
   }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
 
   const handleSend = (message: string, onSuccess: () => void) => {
+    if (!isConnected) {
+      toast.error('연결이 끊어져 메시지를 전송할 수 없습니다. 재연결을 시도하세요.', {
+        id: 'message-send-failed',
+      });
+      console.log('❌ 메시지 전송 실패 - 소켓 연결 없음:', {
+        channelRoomId: parsedChannelRoomId,
+        message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+      });
+      reconnect();
+      return;
+    }
+
     if (!partner?.partnerId) {
       toast.error('상대방 정보가 없습니다.');
       return;
     }
+
     const sendAt = new Date().toISOString();
     try {
       sendSocketMessage({
@@ -301,8 +324,11 @@ export default function ChatsIndividualPage() {
         message,
         sendAt,
       });
+      console.log('✅ 메시지 전송 완료');
     } catch (e) {
+      console.error('❌ 메시지 전송 오류:', e);
       toast.error('메세지 전송에 실패했어요');
+      return;
     }
     onSuccess();
   };
@@ -433,15 +459,17 @@ export default function ChatsIndividualPage() {
         {isUnmatched && <UnavailableChannelBanner />}
         <ChatSignalInputBox
           onSend={handleSend}
-          disabled={isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
+          disabled={!isConnected || isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
           placeholder={
-            isUnmatched
-              ? '더 이상 메세지를 보낼 수 없습니다'
-              : isWaitingModalVisible
-                ? '메세지를 입력해주세요'
-                : isMatchingResponseModalVisible
+            !isConnected
+              ? '연결 중... 잠시만 기다려주세요'
+              : isUnmatched
+                ? '더 이상 메세지를 보낼 수 없습니다'
+                : isWaitingModalVisible
                   ? '메세지를 입력해주세요'
-                  : '메세지를 입력해주세요'
+                  : isMatchingResponseModalVisible
+                    ? '메세지를 입력해주세요'
+                    : '메세지를 입력해주세요'
           }
         />
       </div>
