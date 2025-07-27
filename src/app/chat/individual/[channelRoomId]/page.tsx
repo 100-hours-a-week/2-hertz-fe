@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -43,6 +43,8 @@ export default function ChatsIndividualPage() {
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page')) || 0;
 
+  const mountTimestamp = useMemo(() => Date.now(), []);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
@@ -50,8 +52,8 @@ export default function ChatsIndividualPage() {
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
-      refetchOnMount: true,
-      queryKey: ['channelRoom', parsedChannelRoomId, initialPage],
+      refetchOnMount: 'always',
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
         const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
@@ -67,6 +69,7 @@ export default function ChatsIndividualPage() {
       initialPageParam: 0,
       enabled: isChannelRoomIdValid,
       staleTime: 0,
+      gcTime: 0,
       refetchOnWindowFocus: true,
       refetchOnReconnect: false,
       retry: false,
@@ -108,25 +111,47 @@ export default function ChatsIndividualPage() {
   const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
     channelRoomId: parsedChannelRoomId,
     onMessage: (data: WebSocketIncomingMessage) => {
+      // console.log('📥 소켓 메시지 수신:', { channelRoomId: parsedChannelRoomId, data });
+
       switch (data.event) {
         case 'init_user':
+          // console.log('👤 사용자 초기화:', data.data);
           myUserIdRef.current = data.data;
           break;
         case 'receive_message': {
           const { messageId, senderId, roomId, message, sendAt } = data.data;
           const isMine = senderId === myUserIdRef.current;
+
+          // console.log('💬 메시지 수신:', {
+          //   messageId,
+          //   senderId,
+          //   roomId,
+          //   message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+          //   isMine,
+          // });
+
           if (!isMine) sendMarkAsRead({ roomId });
           const cleanedSendAt =
             typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
           setMessages((prev) => {
-            const alreadyExists = prev.some(
-              (msg) =>
-                msg.messageSenderId === senderId &&
-                msg.messageContents === message &&
-                msg.messageSendAt === cleanedSendAt,
-            );
-            if (alreadyExists) return prev;
+            // messageId가 있는 경우 messageId로 중복 체크
+            if (messageId) {
+              const alreadyExists = prev.some((msg) => msg.messageId === messageId);
+              if (alreadyExists) return prev;
+            } else {
+              // messageId가 없는 경우 senderId, message, 시간으로 중복 체크
+              const alreadyExists = prev.some(
+                (msg) =>
+                  msg.messageSenderId === senderId &&
+                  msg.messageContents === message &&
+                  Math.abs(
+                    new Date(msg.messageSendAt).getTime() - new Date(cleanedSendAt).getTime(),
+                  ) < 1000,
+              );
+              if (alreadyExists) return prev;
+            }
+
             return [
               ...prev,
               {
