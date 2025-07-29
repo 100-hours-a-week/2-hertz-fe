@@ -5,4 +5,6 @@ export type NewMessageType = {
   message: string;
   messageSendAt: string;
   partnerProfileImage: string;
+  relationType: string;
+  lastPageNumber: number;
 };

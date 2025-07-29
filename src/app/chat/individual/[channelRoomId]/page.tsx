@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 
@@ -26,7 +26,6 @@ import { AxiosError } from 'axios';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
-import { useSSEReconnector } from '@/hooks/useSSEReconnector';
 import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
 
 export default function ChatsIndividualPage() {
@@ -34,20 +33,8 @@ export default function ChatsIndividualPage() {
   const parsedChannelRoomId = Number(channelRoomId);
   const isChannelRoomIdValid = !!channelRoomId && !isNaN(parsedChannelRoomId);
   const router = useRouter();
-  const { ref: scrollRef, inView } = useInView();
-
-  const reconnectSSE = useSSEReconnector();
-  const [reconnectKey, setReconnectKey] = useState(Date.now());
-  useEffect(() => {
-    setReconnectKey(Date.now());
-    console.log('💬 parsedChannelRoomId: ', parsedChannelRoomId);
-  }, [parsedChannelRoomId]);
-
-  useEffect(() => {
-    if (isChannelRoomIdValid) {
-      reconnectSSE();
-    }
-  }, [parsedChannelRoomId, reconnectSSE, isChannelRoomIdValid]);
+  const { inView } = useInView();
+  const queryClient = useQueryClient();
 
   const [messages, setMessages] = useState<ChannelRoomDetailResponse['data']['messages']['list']>(
     [],
@@ -57,6 +44,8 @@ export default function ChatsIndividualPage() {
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page')) || 0;
 
+  const mountTimestamp = useMemo(() => Date.now(), []);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
@@ -64,8 +53,8 @@ export default function ChatsIndividualPage() {
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
-      refetchOnMount: true,
-      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, reconnectKey],
+      refetchOnMount: 'always',
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
       queryFn: async ({ pageParam = 0 }) => {
         const page = pageParam as number;
         const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
@@ -81,7 +70,8 @@ export default function ChatsIndividualPage() {
       initialPageParam: 0,
       enabled: isChannelRoomIdValid,
       staleTime: 0,
-      refetchOnWindowFocus: false,
+      gcTime: 0,
+      refetchOnWindowFocus: true,
       refetchOnReconnect: false,
       retry: false,
     });
@@ -119,7 +109,7 @@ export default function ChatsIndividualPage() {
     initMessages();
   }, [data, fetchNextPage, initialPage]);
 
-  const { sendSocketMessage, sendMarkAsRead } = useSocketIO({
+  const { sendSocketMessage, sendMarkAsRead, isConnected, reconnect } = useSocketIO({
     channelRoomId: parsedChannelRoomId,
     onMessage: (data: WebSocketIncomingMessage) => {
       switch (data.event) {
@@ -129,18 +119,33 @@ export default function ChatsIndividualPage() {
         case 'receive_message': {
           const { messageId, senderId, roomId, message, sendAt } = data.data;
           const isMine = senderId === myUserIdRef.current;
-          if (!isMine) sendMarkAsRead({ roomId });
+
+          if (!isMine && isConnected) {
+            sendMarkAsRead({ roomId });
+          } else if (!isMine && !isConnected) {
+            console.log('⚠️ 읽음 처리 스킵 - 소켓 연결 없음:', { roomId });
+          }
           const cleanedSendAt =
             typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
           setMessages((prev) => {
-            const alreadyExists = prev.some(
-              (msg) =>
-                msg.messageSenderId === senderId &&
-                msg.messageContents === message &&
-                msg.messageSendAt === cleanedSendAt,
-            );
-            if (alreadyExists) return prev;
+            // messageId가 있는 경우 messageId로 중복 체크
+            if (messageId) {
+              const alreadyExists = prev.some((msg) => msg.messageId === messageId);
+              if (alreadyExists) return prev;
+            } else {
+              // messageId가 없는 경우 senderId, message, 시간으로 중복 체크
+              const alreadyExists = prev.some(
+                (msg) =>
+                  msg.messageSenderId === senderId &&
+                  msg.messageContents === message &&
+                  Math.abs(
+                    new Date(msg.messageSendAt).getTime() - new Date(cleanedSendAt).getTime(),
+                  ) < 1000,
+              );
+              if (alreadyExists) return prev;
+            }
+
             return [
               ...prev,
               {
@@ -151,6 +156,32 @@ export default function ChatsIndividualPage() {
               },
             ];
           });
+          break;
+        }
+        case 'relation_type_changed': {
+          const { channelRoomId, relationType } = data.data;
+
+          console.log('🔄 소켓을 통한 관계 타입 변경 감지:', {
+            channelRoomId,
+            relationType,
+            currentRoomId: parsedChannelRoomId,
+          });
+
+          if (channelRoomId === parsedChannelRoomId) {
+            console.log('🎯 현재 채팅방의 관계 타입 변경 - 즉시 UI 업데이트');
+
+            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
+
+            queryClient.invalidateQueries({
+              predicate: (query) => {
+                return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+              },
+            });
+
+            if (relationType === 'MATCHING') {
+              toast.success('🎉 매칭이 완료됐어요!', { id: 'socket-matching-success' });
+            }
+          }
           break;
         }
       }
@@ -182,17 +213,63 @@ export default function ChatsIndividualPage() {
     }
   }, [isError, error, router]);
 
-  const relationType = useChannelRoomStore((state) => state.relationTypeMap[parsedChannelRoomId]);
   const partner = data?.pages?.[0]?.data;
-  const hasResponded = useMatchingResponseStore((state) =>
-    state.getHasResponded(parsedChannelRoomId),
-  );
 
   const relationTypeFromStore = useChannelRoomStore((state) =>
     state.getRelationType(parsedChannelRoomId),
   );
   const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
-  const isUnmatched = effectiveRelationType === 'UNMATCHED' && hasResponded;
+  const isUnmatched = effectiveRelationType === 'UNMATCHED';
+
+  useEffect(() => {}, [
+    relationTypeFromStore,
+    partner?.relationType,
+    effectiveRelationType,
+    isUnmatched,
+    isConnected,
+    parsedChannelRoomId,
+  ]);
+
+  // 소켓 연결 상태 모니터링 및 재연결 시도
+  useEffect(() => {
+    if (!isConnected) {
+      console.log('⚠️ 소켓 연결 끊김 감지:', { channelRoomId: parsedChannelRoomId });
+
+      const reconnectTimer = setTimeout(() => {
+        if (!isConnected) {
+          console.log('🔄 자동 재연결 시도:', { channelRoomId: parsedChannelRoomId });
+          toast('연결이 끊어졌습니다. 재연결 시도 중...', {
+            icon: '🔄',
+            id: 'socket-reconnect',
+          });
+          reconnect();
+        }
+      }, 3000);
+
+      return () => {
+        clearTimeout(reconnectTimer);
+      };
+    } else {
+      console.log('✅ 소켓 연결 활성화:', { channelRoomId: parsedChannelRoomId });
+      toast.dismiss('socket-reconnect');
+    }
+  }, [isConnected, parsedChannelRoomId, reconnect]);
+
+  useEffect(() => {
+    if (partner?.relationType) {
+      useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
+    }
+  }, [partner?.relationType, parsedChannelRoomId]);
+
+  useEffect(() => {
+    if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === parsedChannelRoomId;
+        },
+      });
+    }
+  }, [relationTypeFromStore, partner?.relationType, parsedChannelRoomId, queryClient]);
 
   const isFetchingRef = useRef(false);
   useEffect(() => {
@@ -222,10 +299,23 @@ export default function ChatsIndividualPage() {
   }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
 
   const handleSend = (message: string, onSuccess: () => void) => {
+    if (!isConnected) {
+      toast.error('연결이 끊어져 메시지를 전송할 수 없습니다. 재연결을 시도하세요.', {
+        id: 'message-send-failed',
+      });
+      console.log('❌ 메시지 전송 실패 - 소켓 연결 없음:', {
+        channelRoomId: parsedChannelRoomId,
+        message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+      });
+      reconnect();
+      return;
+    }
+
     if (!partner?.partnerId) {
       toast.error('상대방 정보가 없습니다.');
       return;
     }
+
     const sendAt = new Date().toISOString();
     try {
       sendSocketMessage({
@@ -234,8 +324,11 @@ export default function ChatsIndividualPage() {
         message,
         sendAt,
       });
+      console.log('✅ 메시지 전송 완료');
     } catch (e) {
+      console.error('❌ 메시지 전송 오류:', e);
       toast.error('메세지 전송에 실패했어요');
+      return;
     }
     onSuccess();
   };
@@ -366,15 +459,17 @@ export default function ChatsIndividualPage() {
         {isUnmatched && <UnavailableChannelBanner />}
         <ChatSignalInputBox
           onSend={handleSend}
-          disabled={isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
+          disabled={!isConnected || isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
           placeholder={
-            isUnmatched
-              ? '더 이상 메세지를 보낼 수 없습니다'
-              : isWaitingModalVisible
-                ? '메세지를 입력해주세요'
-                : isMatchingResponseModalVisible
+            !isConnected
+              ? '연결 중... 잠시만 기다려주세요'
+              : isUnmatched
+                ? '더 이상 메세지를 보낼 수 없습니다'
+                : isWaitingModalVisible
                   ? '메세지를 입력해주세요'
-                  : '메세지를 입력해주세요'
+                  : isMatchingResponseModalVisible
+                    ? '메세지를 입력해주세요'
+                    : '메세지를 입력해주세요'
           }
         />
       </div>

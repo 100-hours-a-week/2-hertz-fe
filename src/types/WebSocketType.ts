@@ -20,10 +20,16 @@ export interface MarkAsRead {
   roomId: number;
 }
 
+export interface RelationTypeChanged {
+  channelRoomId: number;
+  relationType: 'SIGNAL' | 'MATCHING' | 'UNMATCHED';
+}
+
 // 서버 → 클라이언트
 export type WebSocketIncomingMessage =
   | { event: 'init_user'; data: InitUserMessage }
-  | { event: 'receive_message'; data: ReceiveMessage };
+  | { event: 'receive_message'; data: ReceiveMessage }
+  | { event: 'relation_type_changed'; data: RelationTypeChanged };
 
 // 클라이언트 → 서버
 export type WebSocketOutgoingMessage =

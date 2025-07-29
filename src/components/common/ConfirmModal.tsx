@@ -1,7 +1,5 @@
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef } from 'react';
 
 export function ConfirmModal() {
   const {
@@ -17,18 +15,8 @@ export function ConfirmModal() {
     closeModal,
   } = useConfirmModalStore();
 
-  const pathname = usePathname();
-  const prevPathnameRef = useRef(pathname);
-
-  useEffect(() => {
-    if (isOpen && pathname !== prevPathnameRef.current) {
-      closeModal();
-    }
-    prevPathnameRef.current = pathname;
-  }, [pathname, isOpen, closeModal]);
-
-  const isChatIndividualPage = /^\/chat\/individual\/\d+/.test(pathname);
-  const isMyPage = pathname === '/mypage';
+  const isChatIndividualPage = /^\/chat\/individual\/\d+/.test(window.location.pathname);
+  const isMyPage = window.location.pathname === '/mypage';
   const isLogoutModal = variant === 'quit';
 
   if (!isOpen || (!isChatIndividualPage && !isMyPage && !isLogoutModal)) return null;

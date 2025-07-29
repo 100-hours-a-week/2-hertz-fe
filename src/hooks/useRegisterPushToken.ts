@@ -1,22 +1,34 @@
 'use client';
 
 import { useEffect } from 'react';
-import { messaging, getToken } from '@/lib/firebase';
+import { getMessagingInstance, getFirebaseToken, getVapidKey } from '@/lib/firebase';
 import { postWebpushSubscribe } from '@/lib/api/user';
-
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY!;
 
 export const useRegisterPushToken = () => {
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) return;
 
     const registerPush = async () => {
+      const messaging = await getMessagingInstance();
+      if (!messaging) {
+        console.warn('Firebase Messaging is not available');
+        return;
+      }
+
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return;
 
       try {
-        const fcmToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+        const vapidKey = getVapidKey();
+        if (!vapidKey) {
+          console.error('VAPID key is not configured');
+          return;
+        }
+
+        const fcmToken = await getFirebaseToken(messaging, { vapidKey });
 
         if (fcmToken) {
           await postWebpushSubscribe(fcmToken);
