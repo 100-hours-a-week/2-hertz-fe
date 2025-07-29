@@ -1,21 +1,29 @@
 'use client';
 
-import { messaging, getToken, isSupported } from '@/lib/firebase';
+import {
+  getMessagingInstance,
+  getFirebaseToken,
+  isFirebaseSupported,
+  getVapidKey,
+} from '@/lib/firebase';
 import { postWebpushSubscribe } from '@/lib/api/user';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY!;
-
 export default function ClickWebPushBanner() {
   const handleClick = async () => {
+    if (typeof window === 'undefined') {
+      toast.error('서버에서는 이용할 수 없습니다.');
+      return;
+    }
+
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) {
       toast.error('로그인이 필요합니다.');
       return;
     }
 
-    const isSupportedBrowser = await isSupported();
+    const isSupportedBrowser = await isFirebaseSupported();
     if (!isSupportedBrowser) {
       toast.error('현재 브라우저는 웹 푸시를 지원하지 않습니다.');
       return;
@@ -35,7 +43,19 @@ export default function ClickWebPushBanner() {
     }
 
     try {
-      const fcmToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+      const messaging = await getMessagingInstance();
+      if (!messaging) {
+        toast.error('Firebase Messaging을 초기화할 수 없습니다.');
+        return;
+      }
+
+      const vapidKey = getVapidKey();
+      if (!vapidKey) {
+        toast.error('VAPID 키가 설정되지 않았습니다.');
+        return;
+      }
+
+      const fcmToken = await getFirebaseToken(messaging, { vapidKey });
       if (fcmToken) {
         await postWebpushSubscribe(fcmToken);
         console.log('✅ FCM token 등록 완료');
