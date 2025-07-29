@@ -1,5 +1,4 @@
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, Messaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,9 +10,58 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-export const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-
 const app = initializeApp(firebaseConfig);
-const messaging: Messaging = getMessaging(app);
 
-export { messaging, getToken, onMessage, isSupported };
+export const getMessagingInstance = async () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const { getMessaging } = await import('firebase/messaging');
+    return getMessaging(app);
+  } catch (error) {
+    console.error('Failed to initialize Firebase Messaging:', error);
+    return null;
+  }
+};
+
+export const getFirebaseToken = async (
+  messaging: NonNullable<Awaited<ReturnType<typeof getMessagingInstance>>>,
+  options: { vapidKey: string },
+) => {
+  if (typeof window === 'undefined') {
+    throw new Error('getToken can only be called in browser environment');
+  }
+
+  const { getToken } = await import('firebase/messaging');
+  return getToken(messaging, options);
+};
+
+export const onFirebaseMessage = async (
+  messaging: NonNullable<Awaited<ReturnType<typeof getMessagingInstance>>>,
+  callback: (payload: unknown) => void,
+) => {
+  if (typeof window === 'undefined') {
+    throw new Error('onMessage can only be called in browser environment');
+  }
+
+  const { onMessage } = await import('firebase/messaging');
+  return onMessage(messaging, callback);
+};
+
+export const isFirebaseSupported = async () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    const { isSupported } = await import('firebase/messaging');
+    return await isSupported();
+  } catch (error) {
+    console.error('Failed to check Firebase messaging support:', error);
+    return false;
+  }
+};
+
+export const getVapidKey = () => process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
