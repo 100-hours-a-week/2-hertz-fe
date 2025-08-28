@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
 import { oneLineIntroSchema } from '@/lib/schema/mypageValidation';
@@ -16,7 +16,7 @@ interface UserProfileCardProps {
   onSaveIntroduction?: (newIntro: string) => void;
 }
 
-export default function UserProfileCard({
+const UserProfileCard = memo(function UserProfileCard({
   profileImage,
   nickname,
   oneLineIntroduction,
@@ -24,22 +24,30 @@ export default function UserProfileCard({
   onSaveIntroduction,
 }: UserProfileCardProps) {
   const pathname = usePathname();
-  const isMyPage = pathname === '/mypage';
+  const isMyPage = useMemo(() => pathname === '/mypage', [pathname]);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [introValue, setIntroValue] = useState(oneLineIntroduction) || '';
+  const [introValue, setIntroValue] = useState(oneLineIntroduction || '');
   const [errorMsg, setErrorMsg] = useState('');
-
-  const key = 'oneLineIntroduction' as const;
-
-  const getSafeImageSrc = (src: string) => {
-    if (!src || src.trim() === '') return '/images/default-profile.png';
-    if (src.startsWith('http') || src.startsWith('/')) return src;
-    const cleaned = src.replace(/^(\.\/|\.\.\/)+/, '');
+  const safeImageSrc = useMemo(() => {
+    if (!profileImage || profileImage.trim() === '') return '/images/default-profile.png';
+    if (profileImage.startsWith('http') || profileImage.startsWith('/')) return profileImage;
+    const cleaned = profileImage.replace(/^(\.\/|\.\.\/)+/, '');
     return `/${cleaned}`;
-  };
+  }, [profileImage]);
 
-  const handleSave = () => {
+  const genderText = useMemo(() => {
+    switch (gender) {
+      case 'MALE':
+        return '남성';
+      case 'FEMALE':
+        return '여성';
+      default:
+        return '성별 정보 없음';
+    }
+  }, [gender]);
+
+  const handleSave = useCallback(() => {
     const result = oneLineIntroSchema.safeParse(introValue);
     if (!result.success) {
       setErrorMsg(result.error.errors[0].message);
@@ -49,7 +57,7 @@ export default function UserProfileCard({
     setErrorMsg('');
     if (onSaveIntroduction) onSaveIntroduction(introValue);
     setIsEditing(false);
-  };
+  }, [introValue, onSaveIntroduction]);
 
   useEffect(() => {
     setIntroValue(oneLineIntroduction);
@@ -62,7 +70,7 @@ export default function UserProfileCard({
           <div className="relative h-14 w-14 rounded-full bg-gradient-to-tr from-[#7BA1FF] via-[#7BA1FF] to-transparent p-[2px]">
             <div className="h-full w-full rounded-full bg-white">
               <Image
-                src={getSafeImageSrc(profileImage) || '/images/default-profile.png'}
+                src={safeImageSrc}
                 width={56}
                 height={56}
                 alt="상대 프로필"
@@ -74,9 +82,7 @@ export default function UserProfileCard({
 
         <div className="flex w-full flex-col items-start justify-center">
           <p className="truncate text-lg font-semibold">{nickname}</p>
-          <p className="truncate text-sm text-[var(--gray-300)]">
-            {gender === 'MALE' ? '남성' : gender === 'FEMALE' ? '여성' : '성별 정보 없음'}
-          </p>
+          <p className="truncate text-sm text-[var(--gray-300)]">{genderText}</p>
         </div>
       </div>
 
@@ -137,4 +143,6 @@ export default function UserProfileCard({
       )}
     </div>
   );
-}
+});
+
+export default UserProfileCard;
