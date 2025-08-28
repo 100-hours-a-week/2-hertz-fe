@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, memo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -27,6 +27,122 @@ import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 import { useChannelRoomStore } from '@/stores/modal/useChannelRoomStore';
+
+const DateSeparator = memo(function DateSeparator({ date }: { date: string }) {
+  return (
+    <div className="mx-auto mt-2 mb-4 w-fit rounded-2xl bg-[var(--gray-100)] px-4 py-1 text-sm font-semibold text-[var(--gray-400)]">
+      {date}
+    </div>
+  );
+});
+
+const MessageItem = memo(function MessageItem({
+  msg,
+  partner,
+  effectiveRelationType,
+  isNewDate,
+  currentDate,
+  handleReport,
+}: {
+  msg: ChannelRoomDetailResponse['data']['messages']['list'][0];
+  partner: ChannelRoomDetailResponse['data'] | undefined;
+  effectiveRelationType: string | null;
+  isNewDate: boolean;
+  currentDate: string;
+  handleReport: (params: {
+    messageId: number;
+    messageContent: string;
+    reportedUserId: number;
+  }) => void;
+}) {
+  const isReceiverMessage = msg.messageSenderId === partner?.partnerId;
+
+  const longPressHandler = useMemo(() => {
+    if (!msg.messageId || !msg.messageSenderId) return undefined;
+    return () =>
+      handleReport({
+        messageId: msg.messageId!,
+        messageContent: msg.messageContents,
+        reportedUserId: msg.messageSenderId,
+      });
+  }, [msg.messageId, msg.messageSenderId, msg.messageContents, handleReport]);
+
+  return (
+    <>
+      {isNewDate && <DateSeparator date={currentDate} />}
+      {isReceiverMessage ? (
+        <ReceiverMessage
+          nickname={partner?.partnerNickname ?? ''}
+          profileImage={partner?.partnerProfileImage ?? '/images/default-profile.png'}
+          contents={msg.messageContents}
+          sentAt={msg.messageSendAt}
+          partnerId={partner?.partnerId ?? null}
+          relationType={effectiveRelationType as 'SIGNAL' | 'MATCHING' | 'UNMATCHED'}
+          onLongPress={longPressHandler}
+        />
+      ) : (
+        <SenderMessage
+          contents={msg.messageContents}
+          sentAt={msg.messageSendAt}
+          relationType={effectiveRelationType as 'SIGNAL' | 'MATCHING' | 'UNMATCHED' | null}
+        />
+      )}
+    </>
+  );
+});
+
+const MessageContainer = memo(function MessageContainer({
+  messages,
+  partner,
+  effectiveRelationType,
+  handleReport,
+}: {
+  messages: ChannelRoomDetailResponse['data']['messages']['list'];
+  partner: ChannelRoomDetailResponse['data'] | undefined;
+  effectiveRelationType: string | null;
+  handleReport: (params: {
+    messageId: number;
+    messageContent: string;
+    reportedUserId: number;
+  }) => void;
+}) {
+  return (
+    <>
+      {messages.map((msg, index) => {
+        let isNewDate = false;
+        let currentDate = '';
+
+        if (index === 0) {
+          isNewDate = true;
+          currentDate = formatKoreanDate(msg.messageSendAt);
+        } else {
+          const currentDateStr = msg.messageSendAt.split('T')[0];
+          const prevDateStr = messages[index - 1].messageSendAt.split('T')[0];
+
+          if (currentDateStr !== prevDateStr) {
+            isNewDate = true;
+            currentDate = formatKoreanDate(msg.messageSendAt);
+          }
+        }
+
+        const messageKey = msg.messageId || `temp-${index}`;
+
+        return (
+          <div key={messageKey}>
+            <MessageItem
+              msg={msg}
+              partner={partner}
+              effectiveRelationType={effectiveRelationType}
+              isNewDate={isNewDate}
+              currentDate={currentDate}
+              handleReport={handleReport}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+});
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -96,13 +212,14 @@ export default function ChatsIndividualPage() {
         fetchCount++;
       }
 
-      const allMessages = currentData.pages.flatMap((page) => page.data.messages.list);
+      const allMessages = [];
+      for (const page of currentData.pages) {
+        allMessages.push(...page.data.messages.list);
+      }
       setMessages(allMessages);
 
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-        }, 0);
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
       });
     };
 
@@ -122,28 +239,27 @@ export default function ChatsIndividualPage() {
 
           if (!isMine && isConnected) {
             sendMarkAsRead({ roomId });
-          } else if (!isMine && !isConnected) {
-            console.log('⚠️ 읽음 처리 스킵 - 소켓 연결 없음:', { roomId });
           }
           const cleanedSendAt =
             typeof sendAt === 'string' ? sendAt.replace(/^(.+\.\d{3})\d*$/, '$1') : sendAt;
 
           setMessages((prev) => {
-            // messageId가 있는 경우 messageId로 중복 체크
             if (messageId) {
-              const alreadyExists = prev.some((msg) => msg.messageId === messageId);
-              if (alreadyExists) return prev;
+              for (let i = prev.length - 1; i >= Math.max(0, prev.length - 10); i--) {
+                if (prev[i].messageId === messageId) return prev;
+              }
             } else {
-              // messageId가 없는 경우 senderId, message, 시간으로 중복 체크
-              const alreadyExists = prev.some(
-                (msg) =>
+              const messageTime = new Date(cleanedSendAt).getTime();
+              for (let i = prev.length - 1; i >= Math.max(0, prev.length - 5); i--) {
+                const msg = prev[i];
+                if (
                   msg.messageSenderId === senderId &&
                   msg.messageContents === message &&
-                  Math.abs(
-                    new Date(msg.messageSendAt).getTime() - new Date(cleanedSendAt).getTime(),
-                  ) < 1000,
-              );
-              if (alreadyExists) return prev;
+                  Math.abs(new Date(msg.messageSendAt).getTime() - messageTime) < 1000
+                ) {
+                  return prev;
+                }
+              }
             }
 
             return [
@@ -161,15 +277,7 @@ export default function ChatsIndividualPage() {
         case 'relation_type_changed': {
           const { channelRoomId, relationType } = data.data;
 
-          console.log('🔄 소켓을 통한 관계 타입 변경 감지:', {
-            channelRoomId,
-            relationType,
-            currentRoomId: parsedChannelRoomId,
-          });
-
           if (channelRoomId === parsedChannelRoomId) {
-            console.log('🎯 현재 채팅방의 관계 타입 변경 - 즉시 UI 업데이트');
-
             useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
 
             queryClient.invalidateQueries({
@@ -221,23 +329,10 @@ export default function ChatsIndividualPage() {
   const effectiveRelationType = relationTypeFromStore ?? partner?.relationType;
   const isUnmatched = effectiveRelationType === 'UNMATCHED';
 
-  useEffect(() => {}, [
-    relationTypeFromStore,
-    partner?.relationType,
-    effectiveRelationType,
-    isUnmatched,
-    isConnected,
-    parsedChannelRoomId,
-  ]);
-
-  // 소켓 연결 상태 모니터링 및 재연결 시도
   useEffect(() => {
     if (!isConnected) {
-      console.log('⚠️ 소켓 연결 끊김 감지:', { channelRoomId: parsedChannelRoomId });
-
       const reconnectTimer = setTimeout(() => {
         if (!isConnected) {
-          console.log('🔄 자동 재연결 시도:', { channelRoomId: parsedChannelRoomId });
           toast('연결이 끊어졌습니다. 재연결 시도 중...', {
             icon: '🔄',
             id: 'socket-reconnect',
@@ -250,10 +345,9 @@ export default function ChatsIndividualPage() {
         clearTimeout(reconnectTimer);
       };
     } else {
-      console.log('✅ 소켓 연결 활성화:', { channelRoomId: parsedChannelRoomId });
       toast.dismiss('socket-reconnect');
     }
-  }, [isConnected, parsedChannelRoomId, reconnect]);
+  }, [isConnected, reconnect]);
 
   useEffect(() => {
     if (partner?.relationType) {
@@ -281,11 +375,9 @@ export default function ChatsIndividualPage() {
     }
   }, [inView, hasNextPage, fetchNextPage]);
 
-  const {
-    shouldShowModal,
-    channelRoomId: waitingModalChannelId,
-    openModal,
-  } = useWaitingModalStore();
+  const shouldShowModal = useWaitingModalStore((state) => state.shouldShowModal);
+  const waitingModalChannelId = useWaitingModalStore((state) => state.channelRoomId);
+  const openModal = useWaitingModalStore((state) => state.openModal);
 
   useEffect(() => {
     if (
@@ -296,112 +388,152 @@ export default function ChatsIndividualPage() {
     ) {
       openModal(partner.partnerNickname, parsedChannelRoomId);
     }
-  }, [shouldShowModal, partner?.partnerNickname, parsedChannelRoomId, waitingModalChannelId]);
+  }, [
+    shouldShowModal,
+    partner?.partnerNickname,
+    parsedChannelRoomId,
+    waitingModalChannelId,
+    openModal,
+    partner?.relationType,
+  ]);
 
-  const handleSend = (message: string, onSuccess: () => void) => {
-    if (!isConnected) {
-      toast.error('연결이 끊어져 메시지를 전송할 수 없습니다. 재연결을 시도하세요.', {
-        id: 'message-send-failed',
-      });
-      console.log('❌ 메시지 전송 실패 - 소켓 연결 없음:', {
-        channelRoomId: parsedChannelRoomId,
-        message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
-      });
-      reconnect();
-      return;
-    }
+  const handleSend = useCallback(
+    (message: string, onSuccess: () => void) => {
+      if (!isConnected) {
+        toast.error('연결이 끊어져 메시지를 전송할 수 없습니다. 재연결을 시도하세요.', {
+          id: 'message-send-failed',
+        });
+        reconnect();
+        return;
+      }
 
-    if (!partner?.partnerId) {
-      toast.error('상대방 정보가 없습니다.');
-      return;
-    }
+      if (!partner?.partnerId) {
+        toast.error('상대방 정보가 없습니다.');
+        return;
+      }
 
-    const sendAt = new Date().toISOString();
-    try {
-      sendSocketMessage({
-        roomId: parsedChannelRoomId,
-        receiverUserId: partner.partnerId,
-        message,
-        sendAt,
-      });
-      console.log('✅ 메시지 전송 완료');
-    } catch (e) {
-      console.error('❌ 메시지 전송 오류:', e);
-      toast.error('메세지 전송에 실패했어요');
-      return;
-    }
-    onSuccess();
-  };
+      const sendAt = new Date().toISOString();
+      try {
+        sendSocketMessage({
+          roomId: parsedChannelRoomId,
+          receiverUserId: partner.partnerId,
+          message,
+          sendAt,
+        });
+      } catch {
+        toast.error('메세지 전송에 실패했어요');
+        return;
+      }
+      onSuccess();
+    },
+    [isConnected, partner?.partnerId, parsedChannelRoomId, reconnect, sendSocketMessage],
+  );
 
-  const handleReport = ({
-    messageId,
-    messageContent,
-    reportedUserId,
-  }: {
-    messageId: number;
-    messageContent: string;
-    reportedUserId: number;
-  }) => {
-    useConfirmModalStore.getState().openModal({
-      title: '부적절한 메시지로 신고하시겠어요?',
-      description:
-        '신고 내용은 운영진에게 전달되며, 신고된 메시지는 운영 정책에 따라 검토 후 조치됩니다.',
-      confirmText: '신고하기',
-      cancelText: '취소',
-      variant: 'confirm',
-      onConfirm: async () => {
-        try {
-          await postReportMessage({ messageId, messageContent, reportedUserId });
-          toast.success('신고가 정상적으로 접수되었습니다.');
-        } catch (error: unknown) {
-          if (error instanceof AxiosError && error.response?.data?.code === 'USER_DEACTIVATED') {
-            toast.error('상대방이 탈퇴한 사용자입니다.');
-          } else {
-            toast.error('신고 처리 중 오류가 발생했습니다.');
+  const handleReport = useCallback(
+    ({
+      messageId,
+      messageContent,
+      reportedUserId,
+    }: {
+      messageId: number;
+      messageContent: string;
+      reportedUserId: number;
+    }) => {
+      useConfirmModalStore.getState().openModal({
+        title: '부적절한 메시지로 신고하시겠어요?',
+        description:
+          '신고 내용은 운영진에게 전달되며, 신고된 메시지는 운영 정책에 따라 검토 후 조치됩니다.',
+        confirmText: '신고하기',
+        cancelText: '취소',
+        variant: 'confirm',
+        onConfirm: async () => {
+          try {
+            await postReportMessage({ messageId, messageContent, reportedUserId });
+            toast.success('신고가 정상적으로 접수되었습니다.');
+          } catch (error: unknown) {
+            if (error instanceof AxiosError && error.response?.data?.code === 'USER_DEACTIVATED') {
+              toast.error('상대방이 탈퇴한 사용자입니다.');
+            } else {
+              toast.error('신고 처리 중 오류가 발생했습니다.');
+            }
+          } finally {
+            useConfirmModalStore.getState().closeModal();
           }
-        } finally {
+        },
+        onCancel: () => {
           useConfirmModalStore.getState().closeModal();
-        }
-      },
-      onCancel: () => {
-        useConfirmModalStore.getState().closeModal();
-      },
-    });
-  };
+        },
+      });
+    },
+    [],
+  );
 
-  const isWaitingInThisRoom =
-    isWaitingModalVisible && waitingModalChannelId === parsedChannelRoomId;
+  const modalStates = useMemo(
+    () => ({
+      isWaitingInThisRoom: isWaitingModalVisible && waitingModalChannelId === parsedChannelRoomId,
+      isMatchingInThisRoom:
+        isMatchingResponseModalVisible && waitingModalChannelId === parsedChannelRoomId,
+    }),
+    [
+      isWaitingModalVisible,
+      isMatchingResponseModalVisible,
+      waitingModalChannelId,
+      parsedChannelRoomId,
+    ],
+  );
 
-  const isMatchingInThisRoom =
-    isMatchingResponseModalVisible && waitingModalChannelId === parsedChannelRoomId;
-
-  const handleLeaveChatRoom = (channelRoomId: number, partnerNickname: string) => {
-    useConfirmModalStore.getState().openModal({
-      title: '정말 채팅방을 나가시겠어요?',
-      description: '채널을 나가면 메시지를 다시 확인할 수 없으며,\n상대와의 채팅이 종료됩니다',
-      confirmText: '나가기',
-      cancelText: '취소',
-      variant: 'confirm',
-      onConfirm: async () => {
-        try {
-          await deleteChannelRoom(channelRoomId);
-          toast.success(`${partnerNickname}님과의 채팅방에서 나갔습니다.`);
-          router.push('/chat');
-        } catch (e) {
-          toast.error('채팅방 나가기 중 문제가 발생했어요.');
-        } finally {
+  const handleLeaveChatRoom = useCallback(
+    (channelRoomId: number, partnerNickname: string) => {
+      useConfirmModalStore.getState().openModal({
+        title: '정말 채팅방을 나가시겠어요?',
+        description: '채널을 나가면 메시지를 다시 확인할 수 없으며,\n상대와의 채팅이 종료됩니다',
+        confirmText: '나가기',
+        cancelText: '취소',
+        variant: 'confirm',
+        onConfirm: async () => {
+          try {
+            await deleteChannelRoom(channelRoomId);
+            toast.success(`${partnerNickname}님과의 채팅방에서 나갔습니다.`);
+            router.push('/chat');
+          } catch (e) {
+            toast.error('채팅방 나가기 중 문제가 발생했어요.');
+          } finally {
+            useConfirmModalStore.getState().closeModal();
+          }
+        },
+        onCancel: () => {
           useConfirmModalStore.getState().closeModal();
-        }
-      },
-      onCancel: () => {
-        useConfirmModalStore.getState().closeModal();
-      },
-    });
-  };
+        },
+      });
+    },
+    [router],
+  );
 
-  if (!isChannelRoomIdValid) return toast.error('나간 채팅방에 다시 접속할 수 없습니다.');
-  if (isLoading)
+  if (!isChannelRoomIdValid) {
+    toast.error('나간 채팅방에 다시 접속할 수 없습니다.');
+    return null;
+  }
+
+  if (isLoading) {
     return <p className="flex items-center justify-center text-sm font-medium">로딩 중...</p>;
+  }
+
+  if (!messages.length) {
+    return (
+      <>
+        {typeof partner?.partnerId === 'number' && (
+          <ChatHeader
+            title={partner?.partnerNickname ?? ''}
+            partnerId={partner?.partnerId}
+            onLeave={() => handleLeaveChatRoom(parsedChannelRoomId, partner?.partnerNickname ?? '')}
+          />
+        )}
+        <div className="flex h-full items-center justify-center text-sm text-gray-400">
+          메시지가 없습니다.
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -414,44 +546,12 @@ export default function ChatsIndividualPage() {
           />
         )}
         <div className="flex flex-col gap-6">
-          {messages.map((msg, index) => {
-            const currentDate = formatKoreanDate(msg.messageSendAt);
-            const prevDate = index > 0 ? formatKoreanDate(messages[index - 1].messageSendAt) : null;
-            const isNewDate = currentDate !== prevDate;
-            return (
-              <div key={msg.messageId}>
-                {isNewDate && (
-                  <div className="mx-auto mt-2 mb-4 w-fit rounded-2xl bg-[var(--gray-100)] px-4 py-1 text-sm font-semibold text-[var(--gray-400)]">
-                    {currentDate}
-                  </div>
-                )}
-                {msg.messageSenderId === partner?.partnerId ? (
-                  <ReceiverMessage
-                    nickname={partner?.partnerNickname ?? ''}
-                    profileImage={partner?.partnerProfileImage ?? '/images/default-profile.png'}
-                    contents={msg.messageContents}
-                    sentAt={msg.messageSendAt}
-                    partnerId={partner?.partnerId ?? null}
-                    relationType={partner?.relationType ?? null}
-                    onLongPress={() => {
-                      if (!msg.messageId || !msg.messageSenderId) return;
-                      handleReport({
-                        messageId: msg.messageId,
-                        messageContent: msg.messageContents,
-                        reportedUserId: msg.messageSenderId,
-                      });
-                    }}
-                  />
-                ) : (
-                  <SenderMessage
-                    contents={msg.messageContents}
-                    sentAt={msg.messageSendAt}
-                    relationType={partner?.relationType ?? null}
-                  />
-                )}
-              </div>
-            );
-          })}
+          <MessageContainer
+            messages={messages}
+            partner={partner}
+            effectiveRelationType={effectiveRelationType ?? null}
+            handleReport={handleReport}
+          />
           <div ref={bottomRef} />
         </div>
       </main>
@@ -459,17 +559,18 @@ export default function ChatsIndividualPage() {
         {isUnmatched && <UnavailableChannelBanner />}
         <ChatSignalInputBox
           onSend={handleSend}
-          disabled={!isConnected || isUnmatched || isWaitingInThisRoom || isMatchingInThisRoom}
+          disabled={
+            !isConnected ||
+            isUnmatched ||
+            modalStates.isWaitingInThisRoom ||
+            modalStates.isMatchingInThisRoom
+          }
           placeholder={
             !isConnected
               ? '연결 중... 잠시만 기다려주세요'
               : isUnmatched
                 ? '더 이상 메세지를 보낼 수 없습니다'
-                : isWaitingModalVisible
-                  ? '메세지를 입력해주세요'
-                  : isMatchingResponseModalVisible
-                    ? '메세지를 입력해주세요'
-                    : '메세지를 입력해주세요'
+                : '메세지를 입력해주세요'
           }
         />
       </div>
