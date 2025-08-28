@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Header from '@/components/layout/Header';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
@@ -27,7 +27,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isHiddenUI, setIsHiddenUI] = useState(false);
-  const { setReconnect } = useSSEStore();
+  const setReconnect = useSSEStore((state) => state.setReconnect);
   const prevPathnameRef = useRef(pathname);
 
   const confirmModalStore = useConfirmModalStore.getState();
@@ -111,30 +111,49 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     pathname && !EXCLUDE_PATHS.some((excludedPath) => pathname.startsWith(excludedPath));
   const isPathValid = typeof pathname === 'string' && pathname.length > 0;
 
-  const handlers = getSSEHandlers({
-    handleAccept: async (channelRoomId) => {
-      await postMatchingAccept({ channelRoomId });
-      toast.success(`매칭이 완료됐어요!`, {
-        icon: '🎉',
-        id: 'matching-success',
-      });
-    },
+  const handleAccept = useCallback(async (channelRoomId: number) => {
+    await postMatchingAccept({ channelRoomId });
+    toast.success(`매칭이 완료됐어요!`, {
+      icon: '🎉',
+      id: 'matching-success',
+    });
+  }, []);
 
-    handleReject: async (channelRoomId) => {
-      await postMatchingReject({ channelRoomId });
-      toast('매칭을 거절했어요', { icon: '👋', id: 'matching-reject' });
-    },
-    getChannelRoomIdFromPath: (pathname: string) => {
-      const match = pathname.match(/\/chat\/(?:individual|group)\/(\d+)/);
-      return match ? Number(match[1]) : null;
-    },
-    confirmModalStore,
-    matchingResponseStore,
-    waitingModalStore,
-    navNewMessageStore,
-    newAlarmStore,
-    newMessageStore,
-  });
+  const handleReject = useCallback(async (channelRoomId: number) => {
+    await postMatchingReject({ channelRoomId });
+    toast('매칭을 거절했어요', { icon: '👋', id: 'matching-reject' });
+  }, []);
+
+  const getChannelRoomIdFromPath = useCallback((pathname: string) => {
+    const match = pathname.match(/\/chat\/(?:individual|group)\/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }, []);
+
+  const handlers = useMemo(
+    () =>
+      getSSEHandlers({
+        handleAccept,
+        handleReject,
+        getChannelRoomIdFromPath,
+        confirmModalStore,
+        matchingResponseStore,
+        waitingModalStore,
+        navNewMessageStore,
+        newAlarmStore,
+        newMessageStore,
+      }),
+    [
+      handleAccept,
+      handleReject,
+      getChannelRoomIdFromPath,
+      confirmModalStore,
+      matchingResponseStore,
+      waitingModalStore,
+      navNewMessageStore,
+      newAlarmStore,
+      newMessageStore,
+    ],
+  );
 
   useSSE({
     url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
