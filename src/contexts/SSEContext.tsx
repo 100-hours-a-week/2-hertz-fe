@@ -29,13 +29,6 @@ export const SSEProvider = ({ children }: { children: React.ReactNode }) => {
     setReconnectKey((prev) => prev + 1);
   }, []);
 
-  const confirmModalStore = useConfirmModalStore();
-  const matchingResponseStore = useMatchingResponseStore();
-  const waitingModalStore = useWaitingModalStore();
-  const navNewMessageStore = useNavNewMessageStore();
-  const newAlarmStore = useNewAlarmStore();
-  const newMessageStore = useNewMessageStore();
-
   const handlers = useMemo(() => {
     return getSSEHandlers({
       handleAccept: async (channelRoomId, partnerNickname) => {
@@ -49,22 +42,14 @@ export const SSEProvider = ({ children }: { children: React.ReactNode }) => {
         const match = pathname.match(/\/chat\/(?:individual|group)\/(\d+)/);
         return match ? Number(match[1]) : null;
       },
-      confirmModalStore,
-      matchingResponseStore,
-      waitingModalStore,
-      navNewMessageStore,
-      newAlarmStore,
-      newMessageStore,
+      confirmModalStore: useConfirmModalStore.getState(),
+      matchingResponseStore: useMatchingResponseStore.getState(),
+      waitingModalStore: useWaitingModalStore.getState(),
+      navNewMessageStore: useNavNewMessageStore.getState(),
+      newAlarmStore: useNewAlarmStore.getState(),
+      newMessageStore: useNewMessageStore.getState(),
     });
-  }, [
-    pathname,
-    confirmModalStore,
-    matchingResponseStore,
-    waitingModalStore,
-    navNewMessageStore,
-    newAlarmStore,
-    newMessageStore,
-  ]);
+  }, [pathname]);
 
   useSSE({
     url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,

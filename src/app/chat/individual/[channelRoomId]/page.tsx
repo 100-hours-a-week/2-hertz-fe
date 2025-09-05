@@ -164,15 +164,14 @@ export default function ChatsIndividualPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { isWaitingModalVisible, shouldShowModal, waitingModalChannelId, openModal } =
-    useWaitingModalStore(
-      useShallow((state) => ({
-        isWaitingModalVisible: state.shouldShowModal,
-        shouldShowModal: state.shouldShowModal,
-        waitingModalChannelId: state.channelRoomId,
-        openModal: state.openModal,
-      })),
-    );
+  const { shouldShowModal, waitingModalChannelId, openModal } = useWaitingModalStore(
+    useShallow((state) => ({
+      shouldShowModal: state.shouldShowModal,
+      waitingModalChannelId: state.channelRoomId,
+      openModal: state.openModal,
+    })),
+  );
+  const isWaitingModalVisible = shouldShowModal;
   const { isMatchingResponseModalVisible } = useMatchingResponseStore(
     useShallow((state) => ({
       isMatchingResponseModalVisible: state.isModalOpen,
