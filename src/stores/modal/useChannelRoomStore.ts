@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 
 type ChannelRoomState = {
   relationTypeMap: Record<number, string>;
@@ -6,14 +7,13 @@ type ChannelRoomState = {
   getRelationType: (channelRoomId: number) => string | undefined;
 };
 
-export const useChannelRoomStore = create<ChannelRoomState>((set, get) => ({
-  relationTypeMap: {},
-  setRelationType: (channelRoomId, relationType) =>
-    set((state) => ({
-      relationTypeMap: {
-        ...state.relationTypeMap,
-        [channelRoomId]: relationType,
-      },
-    })),
-  getRelationType: (channelRoomId) => get().relationTypeMap[channelRoomId],
-}));
+export const useChannelRoomStore = create<ChannelRoomState>()(
+  immer((set, get) => ({
+    relationTypeMap: {},
+    setRelationType: (channelRoomId, relationType) =>
+      set((state) => {
+        state.relationTypeMap[channelRoomId] = relationType;
+      }),
+    getRelationType: (channelRoomId) => get().relationTypeMap[channelRoomId],
+  })),
+);
