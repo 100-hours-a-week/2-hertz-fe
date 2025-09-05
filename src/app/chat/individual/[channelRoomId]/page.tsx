@@ -186,30 +186,45 @@ export default function ChatsIndividualPage() {
   const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
   const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
 
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
-    useInfiniteQuery<ChannelRoomDetailResponse>({
-      refetchOnMount: 'always',
-      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
-      queryFn: async ({ pageParam = 0 }) => {
-        const page = pageParam as number;
-        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
-        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
-          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
-        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
-        return response;
-      },
-      getNextPageParam: (lastPage) => {
-        const pagination = lastPage.data.messages.pageable;
-        return pagination.isLast ? undefined : pagination.pageNumber + 1;
-      },
-      initialPageParam: 0,
-      enabled: isChannelRoomIdValid,
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      retry: false,
-    });
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery({
+    refetchOnMount: 'always',
+    queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
+    queryFn: async ({ pageParam = 0 }) => {
+      const page = pageParam as number;
+      const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
+      if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
+        throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+      if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
+      return response;
+    },
+    select: (data) => {
+      return {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          data: {
+            ...page.data,
+            messages: {
+              ...page.data.messages,
+              list: page.data.messages.list,
+            },
+          },
+        })),
+      };
+    },
+    getNextPageParam: (lastPage) => {
+      const pagination = lastPage.data.messages.pageable;
+      return pagination.isLast ? undefined : pagination.pageNumber + 1;
+    },
+    initialPageParam: 0,
+    enabled: isChannelRoomIdValid,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    maxPages: 50,
+  });
 
   const hasInitializedRef = useRef<{ [page: number]: boolean }>({});
 
@@ -231,10 +246,14 @@ export default function ChatsIndividualPage() {
         fetchCount++;
       }
 
-      const allMessages = [];
-      for (const page of currentData.pages) {
-        allMessages.push(...page.data.messages.list);
-      }
+      const allMessages = currentData.pages.reduce(
+        (acc, page) => {
+          acc.push(...page.data.messages.list);
+          return acc;
+        },
+        [] as (typeof currentData.pages)[0]['data']['messages']['list'],
+      );
+
       setMessages(allMessages);
 
       requestAnimationFrame(() => {

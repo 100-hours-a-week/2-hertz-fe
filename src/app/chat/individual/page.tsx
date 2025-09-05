@@ -1,18 +1,19 @@
 'use client';
 
 import dayjs from 'dayjs';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { getChannelRooms } from '@/lib/api/chat';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { getChannelRooms, getChannelRoomDetail } from '@/lib/api/chat';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Image from 'next/image';
 import { useInView } from 'react-intersection-observer';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ChatRoomNotFoundPage from '@/components/chat/ChatRoomNotFound';
 
 export default function ChannelsIndividualPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { ref, inView } = useInView();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
@@ -23,7 +24,25 @@ export default function ChannelsIndividualPage() {
         return lastPage.data?.isLast ? undefined : (lastPage.data?.pageNumber ?? 0) + 1;
       },
       initialPageParam: 0,
+      staleTime: 1000 * 30,
+      gcTime: 1000 * 60 * 5,
     });
+
+  // 채팅방 hover/focus 시 prefetch
+  const prefetchChatRoom = useCallback(
+    (channelRoomId: number, lastPageNumber: number) => {
+      queryClient.prefetchInfiniteQuery({
+        queryKey: ['channelRoom', channelRoomId, lastPageNumber, Date.now()],
+        queryFn: async ({ pageParam = 0 }) => {
+          const page = pageParam as number;
+          return await getChannelRoomDetail(channelRoomId, page, 20);
+        },
+        initialPageParam: 0,
+        staleTime: 1000 * 60 * 2,
+      });
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     if (inView && hasNextPage) {
@@ -50,6 +69,8 @@ export default function ChannelsIndividualPage() {
                 `/chat/individual/${room.channelRoomId}?page=${room.lastPageNumber}&size=20`,
               );
             }}
+            onMouseEnter={() => prefetchChatRoom(room.channelRoomId, room.lastPageNumber)}
+            onFocus={() => prefetchChatRoom(room.channelRoomId, room.lastPageNumber)}
             className="flex w-full appearance-none items-start gap-5 overflow-hidden border-none bg-transparent p-0 text-left"
           >
             <div className="flex w-full items-start gap-5 overflow-hidden">
