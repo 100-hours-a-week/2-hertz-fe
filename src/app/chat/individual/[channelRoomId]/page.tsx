@@ -164,16 +164,23 @@ export default function ChatsIndividualPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { isWaitingModalVisible } = useWaitingModalStore(
-    useShallow((state) => ({
-      isWaitingModalVisible: state.shouldShowModal,
-    })),
-  );
+  const { isWaitingModalVisible, shouldShowModal, waitingModalChannelId, openModal } =
+    useWaitingModalStore(
+      useShallow((state) => ({
+        isWaitingModalVisible: state.shouldShowModal,
+        shouldShowModal: state.shouldShowModal,
+        waitingModalChannelId: state.channelRoomId,
+        openModal: state.openModal,
+      })),
+    );
   const { isMatchingResponseModalVisible } = useMatchingResponseStore(
     useShallow((state) => ({
       isMatchingResponseModalVisible: state.isModalOpen,
     })),
   );
+
+  const setRelationType = useChannelRoomStore((state) => state.setRelationType);
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       refetchOnMount: 'always',
@@ -285,7 +292,7 @@ export default function ChatsIndividualPage() {
           const { channelRoomId, relationType } = data.data;
 
           if (channelRoomId === parsedChannelRoomId) {
-            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
+            setRelationType(channelRoomId, relationType);
 
             queryClient.invalidateQueries({
               predicate: (query) => {
@@ -358,9 +365,9 @@ export default function ChatsIndividualPage() {
 
   useEffect(() => {
     if (partner?.relationType) {
-      useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
+      setRelationType(parsedChannelRoomId, partner.relationType);
     }
-  }, [partner?.relationType, parsedChannelRoomId]);
+  }, [partner?.relationType, parsedChannelRoomId, setRelationType]);
 
   useEffect(() => {
     if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
@@ -381,10 +388,6 @@ export default function ChatsIndividualPage() {
       });
     }
   }, [inView, hasNextPage, fetchNextPage]);
-
-  const shouldShowModal = useWaitingModalStore((state) => state.shouldShowModal);
-  const waitingModalChannelId = useWaitingModalStore((state) => state.channelRoomId);
-  const openModal = useWaitingModalStore((state) => state.openModal);
 
   useEffect(() => {
     if (

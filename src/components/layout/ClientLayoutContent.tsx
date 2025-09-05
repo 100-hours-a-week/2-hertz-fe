@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Header from '@/components/layout/Header';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
