@@ -91,24 +91,24 @@ const MessageItem = memo(function MessageItem({
   );
 });
 
-const MessageContainer = memo(function MessageContainer({
-  messages,
-  partner,
-  effectiveRelationType,
-  handleReport,
-}: {
-  messages: ChannelRoomDetailResponse['data']['messages']['list'];
-  partner: ChannelRoomDetailResponse['data'] | undefined;
-  effectiveRelationType: string | null;
-  handleReport: (params: {
-    messageId: number;
-    messageContent: string;
-    reportedUserId: number;
-  }) => void;
-}) {
-  return (
-    <>
-      {messages.map((msg, index) => {
+const MessageContainer = memo(
+  function MessageContainer({
+    messages,
+    partner,
+    effectiveRelationType,
+    handleReport,
+  }: {
+    messages: ChannelRoomDetailResponse['data']['messages']['list'];
+    partner: ChannelRoomDetailResponse['data'] | undefined;
+    effectiveRelationType: string | null;
+    handleReport: (params: {
+      messageId: number;
+      messageContent: string;
+      reportedUserId: number;
+    }) => void;
+  }) {
+    const messagesWithDateInfo = useMemo(() => {
+      return messages.map((msg, index) => {
         let isNewDate = false;
         let currentDate = '';
 
@@ -125,24 +125,43 @@ const MessageContainer = memo(function MessageContainer({
           }
         }
 
-        const messageKey = msg.messageId || `temp-${index}`;
+        return {
+          ...msg,
+          isNewDate,
+          currentDate,
+          messageKey: msg.messageId || `temp-${index}`,
+        };
+      });
+    }, [messages]);
 
-        return (
-          <div key={messageKey}>
+    return (
+      <>
+        {messagesWithDateInfo.map((msgInfo) => (
+          <div key={msgInfo.messageKey}>
             <MessageItem
-              msg={msg}
+              msg={msgInfo}
               partner={partner}
               effectiveRelationType={effectiveRelationType}
-              isNewDate={isNewDate}
-              currentDate={currentDate}
+              isNewDate={msgInfo.isNewDate}
+              currentDate={msgInfo.currentDate}
               handleReport={handleReport}
             />
           </div>
-        );
-      })}
-    </>
-  );
-});
+        ))}
+      </>
+    );
+  },
+  (prevProps, nextProps) => {
+    // 메시지 배열 길이와 마지막 메시지만 비교하여 불필요한 리렌더링 방지
+    return (
+      prevProps.messages.length === nextProps.messages.length &&
+      prevProps.messages[prevProps.messages.length - 1]?.messageId ===
+        nextProps.messages[nextProps.messages.length - 1]?.messageId &&
+      prevProps.effectiveRelationType === nextProps.effectiveRelationType &&
+      prevProps.partner?.partnerId === nextProps.partner?.partnerId
+    );
+  },
+);
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -180,30 +199,45 @@ export default function ChatsIndividualPage() {
 
   const setRelationType = useChannelRoomStore((state) => state.setRelationType);
 
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
-    useInfiniteQuery<ChannelRoomDetailResponse>({
-      refetchOnMount: 'always',
-      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
-      queryFn: async ({ pageParam = 0 }) => {
-        const page = pageParam as number;
-        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
-        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
-          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
-        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
-        return response;
-      },
-      getNextPageParam: (lastPage) => {
-        const pagination = lastPage.data.messages.pageable;
-        return pagination.isLast ? undefined : pagination.pageNumber + 1;
-      },
-      initialPageParam: 0,
-      enabled: isChannelRoomIdValid,
-      staleTime: 0,
-      gcTime: 0,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: false,
-      retry: false,
-    });
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery({
+    refetchOnMount: 'always',
+    queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
+    queryFn: async ({ pageParam = 0 }) => {
+      const page = pageParam as number;
+      const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
+      if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
+        throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+      if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
+      return response;
+    },
+    select: (data) => {
+      return {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          data: {
+            ...page.data,
+            messages: {
+              ...page.data.messages,
+              list: page.data.messages.list,
+            },
+          },
+        })),
+      };
+    },
+    getNextPageParam: (lastPage) => {
+      const pagination = lastPage.data.messages.pageable;
+      return pagination.isLast ? undefined : pagination.pageNumber + 1;
+    },
+    initialPageParam: 0,
+    enabled: isChannelRoomIdValid,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    maxPages: 50,
+  });
 
   const hasInitializedRef = useRef<{ [page: number]: boolean }>({});
 
@@ -225,10 +259,14 @@ export default function ChatsIndividualPage() {
         fetchCount++;
       }
 
-      const allMessages = [];
-      for (const page of currentData.pages) {
-        allMessages.push(...page.data.messages.list);
-      }
+      const allMessages = currentData.pages.reduce(
+        (acc, page) => {
+          acc.push(...page.data.messages.list);
+          return acc;
+        },
+        [] as (typeof currentData.pages)[0]['data']['messages']['list'],
+      );
+
       setMessages(allMessages);
 
       requestAnimationFrame(() => {
@@ -258,32 +296,30 @@ export default function ChatsIndividualPage() {
 
           setMessages((prev) => {
             if (messageId) {
-              for (let i = prev.length - 1; i >= Math.max(0, prev.length - 10); i--) {
-                if (prev[i].messageId === messageId) return prev;
+              const recentMessages = prev.slice(-10);
+              if (recentMessages.some((msg) => msg.messageId === messageId)) {
+                return prev;
               }
             } else {
               const messageTime = new Date(cleanedSendAt).getTime();
-              for (let i = prev.length - 1; i >= Math.max(0, prev.length - 5); i--) {
-                const msg = prev[i];
-                if (
+              const recentMessages = prev.slice(-5);
+              const isDuplicate = recentMessages.some(
+                (msg) =>
                   msg.messageSenderId === senderId &&
                   msg.messageContents === message &&
-                  Math.abs(new Date(msg.messageSendAt).getTime() - messageTime) < 1000
-                ) {
-                  return prev;
-                }
-              }
+                  Math.abs(new Date(msg.messageSendAt).getTime() - messageTime) < 1000,
+              );
+              if (isDuplicate) return prev;
             }
 
-            return [
-              ...prev,
-              {
-                messageId,
-                messageSenderId: senderId,
-                messageContents: message,
-                messageSendAt: cleanedSendAt,
-              },
-            ];
+            const newMessage = {
+              messageId,
+              messageSenderId: senderId,
+              messageContents: message,
+              messageSendAt: cleanedSendAt,
+            };
+
+            return [...prev, newMessage];
           });
           break;
         }
