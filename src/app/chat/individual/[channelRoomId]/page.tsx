@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
-
+import { useShallow } from 'zustand/react/shallow';
 import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
@@ -164,8 +164,21 @@ export default function ChatsIndividualPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
-  const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
+  const { shouldShowModal, waitingModalChannelId, openModal } = useWaitingModalStore(
+    useShallow((state) => ({
+      shouldShowModal: state.shouldShowModal,
+      waitingModalChannelId: state.channelRoomId,
+      openModal: state.openModal,
+    })),
+  );
+  const isWaitingModalVisible = shouldShowModal;
+  const { isMatchingResponseModalVisible } = useMatchingResponseStore(
+    useShallow((state) => ({
+      isMatchingResponseModalVisible: state.isModalOpen,
+    })),
+  );
+
+  const setRelationType = useChannelRoomStore((state) => state.setRelationType);
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
@@ -278,7 +291,7 @@ export default function ChatsIndividualPage() {
           const { channelRoomId, relationType } = data.data;
 
           if (channelRoomId === parsedChannelRoomId) {
-            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
+            setRelationType(channelRoomId, relationType);
 
             queryClient.invalidateQueries({
               predicate: (query) => {
@@ -351,9 +364,9 @@ export default function ChatsIndividualPage() {
 
   useEffect(() => {
     if (partner?.relationType) {
-      useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
+      setRelationType(parsedChannelRoomId, partner.relationType);
     }
-  }, [partner?.relationType, parsedChannelRoomId]);
+  }, [partner?.relationType, parsedChannelRoomId, setRelationType]);
 
   useEffect(() => {
     if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
@@ -374,10 +387,6 @@ export default function ChatsIndividualPage() {
       });
     }
   }, [inView, hasNextPage, fetchNextPage]);
-
-  const shouldShowModal = useWaitingModalStore((state) => state.shouldShowModal);
-  const waitingModalChannelId = useWaitingModalStore((state) => state.channelRoomId);
-  const openModal = useWaitingModalStore((state) => state.openModal);
 
   useEffect(() => {
     if (
