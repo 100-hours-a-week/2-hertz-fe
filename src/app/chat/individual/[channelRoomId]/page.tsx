@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
-
+import { useShallow } from 'zustand/react/shallow';
 import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
@@ -164,9 +164,16 @@ export default function ChatsIndividualPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
-  const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
-
+  const { isWaitingModalVisible } = useWaitingModalStore(
+    useShallow((state) => ({
+      isWaitingModalVisible: state.shouldShowModal,
+    })),
+  );
+  const { isMatchingResponseModalVisible } = useMatchingResponseStore(
+    useShallow((state) => ({
+      isMatchingResponseModalVisible: state.isModalOpen,
+    })),
+  );
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
     useInfiniteQuery<ChannelRoomDetailResponse>({
       refetchOnMount: 'always',
