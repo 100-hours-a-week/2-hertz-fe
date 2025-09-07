@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
-
+import { useShallow } from 'zustand/react/shallow';
 import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
@@ -257,7 +257,6 @@ export default function ChatsIndividualPage() {
         },
         [] as (typeof data.pages)[0]['data']['messages']['list'],
       );
-
       setMessages(allMessages);
 
       requestAnimationFrame(() => {
@@ -337,7 +336,7 @@ export default function ChatsIndividualPage() {
           const { channelRoomId, relationType } = data.data;
 
           if (channelRoomId === parsedChannelRoomId) {
-            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
+            setRelationType(channelRoomId, relationType);
 
             queryClient.setQueriesData(
               {
@@ -428,9 +427,9 @@ export default function ChatsIndividualPage() {
 
   useEffect(() => {
     if (partner?.relationType) {
-      useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
+      setRelationType(parsedChannelRoomId, partner.relationType);
     }
-  }, [partner?.relationType, parsedChannelRoomId]);
+  }, [partner?.relationType, parsedChannelRoomId, setRelationType]);
 
   useEffect(() => {
     if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
@@ -453,10 +452,6 @@ export default function ChatsIndividualPage() {
       });
     }
   }, [inView, hasNextPage, fetchNextPage]);
-
-  const shouldShowModal = useWaitingModalStore((state) => state.shouldShowModal);
-  const waitingModalChannelId = useWaitingModalStore((state) => state.channelRoomId);
-  const openModal = useWaitingModalStore((state) => state.openModal);
 
   useEffect(() => {
     if (

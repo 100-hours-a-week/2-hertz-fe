@@ -37,6 +37,7 @@ export default function ChannelsIndividualPage() {
 
       queryClient.prefetchInfiniteQuery({
         queryKey: ['channelRoom', channelRoomId, lastPageNumber],
+
         queryFn: async ({ pageParam = 0 }) => {
           const page = pageParam as number;
           return await getChannelRoomDetail(channelRoomId, page, 20);

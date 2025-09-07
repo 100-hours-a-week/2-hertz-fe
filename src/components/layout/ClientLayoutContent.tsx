@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Header from '@/components/layout/Header';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
@@ -11,6 +11,7 @@ import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
 import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
+import { useShallow } from 'zustand/react/shallow';
 import { ConfirmModal } from '../common/ConfirmModal';
 import WaitingModal from '../common/WaitingModal';
 import NewMessageToast from '../common/NewMessageToast';
@@ -30,12 +31,29 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const setReconnect = useSSEStore((state) => state.setReconnect);
   const prevPathnameRef = useRef(pathname);
 
-  const confirmModalStore = useConfirmModalStore.getState();
-  const matchingResponseStore = useMatchingResponseStore.getState();
-  const waitingModalStore = useWaitingModalStore.getState();
-  const navNewMessageStore = useNavNewMessageStore.getState();
-  const newAlarmStore = useNewAlarmStore.getState();
-  const newMessageStore = useNewMessageStore.getState();
+  const { temporarilyHideModal: hideConfirmModal, restoreModal: restoreConfirmModal } =
+    useConfirmModalStore(
+      useShallow((state) => ({
+        temporarilyHideModal: state.temporarilyHideModal,
+        restoreModal: state.restoreModal,
+      })),
+    );
+
+  const { temporarilyHideModal: hideMatchingModal, restoreModal: restoreMatchingModal } =
+    useMatchingResponseStore(
+      useShallow((state) => ({
+        temporarilyHideModal: state.temporarilyHideModal,
+        restoreModal: state.restoreModal,
+      })),
+    );
+
+  const { temporarilyHideModal: hideWaitingModal, restoreModal: restoreWaitingModal } =
+    useWaitingModalStore(
+      useShallow((state) => ({
+        temporarilyHideModal: state.temporarilyHideModal,
+        restoreModal: state.restoreModal,
+      })),
+    );
 
   // 전역 페이지 이동 감지하여 매칭 응답 모달 관리
   useEffect(() => {
@@ -54,20 +72,20 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
       const confirmModalState = useConfirmModalStore.getState();
 
       if (confirmModalState.isOpen) {
-        confirmModalStore.temporarilyHideModal(channelRoomId);
+        hideConfirmModal(channelRoomId);
       }
 
       // WaitingModal 상태 확인 및 임시 숨김
       const waitingModalState = useWaitingModalStore.getState();
 
       if (waitingModalState.isOpen) {
-        waitingModalStore.temporarilyHideModal(channelRoomId);
+        hideWaitingModal(channelRoomId);
       }
       // MatchingResponseModal 상태 확인 및 임시 숨김
       const currentModalState = useMatchingResponseStore.getState();
 
       if (currentModalState.isModalOpen) {
-        matchingResponseStore.temporarilyHideModal(channelRoomId);
+        hideMatchingModal(channelRoomId);
       }
     } else if (!prevChatMatch && currentChatMatch) {
       // 다른 페이지에서 채팅방으로 이동
@@ -80,7 +98,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         confirmModalState.isTemporarilyHidden &&
         confirmModalState.hiddenChannelRoomId === channelRoomId
       ) {
-        confirmModalStore.restoreModal(channelRoomId);
+        restoreConfirmModal(channelRoomId);
       }
 
       // WaitingModal 복원
@@ -90,7 +108,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         waitingModalState.isTemporarilyHidden &&
         waitingModalState.hiddenChannelRoomId === channelRoomId
       ) {
-        waitingModalStore.restoreModal(channelRoomId);
+        restoreWaitingModal(channelRoomId);
       }
 
       // MatchingResponseModal 복원
@@ -100,12 +118,20 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         currentModalState.isModalTemporarilyHidden &&
         currentModalState.hiddenChannelRoomId === channelRoomId
       ) {
-        matchingResponseStore.restoreModal(channelRoomId);
+        restoreMatchingModal(channelRoomId);
       }
     }
 
     prevPathnameRef.current = currentPath;
-  }, [pathname, confirmModalStore, matchingResponseStore, waitingModalStore]);
+  }, [
+    pathname,
+    hideConfirmModal,
+    restoreConfirmModal,
+    hideMatchingModal,
+    restoreMatchingModal,
+    hideWaitingModal,
+    restoreWaitingModal,
+  ]);
 
   const shouldConnectSSE =
     pathname && !EXCLUDE_PATHS.some((excludedPath) => pathname.startsWith(excludedPath));
@@ -129,31 +155,17 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     return match ? Number(match[1]) : null;
   }, []);
 
-  const handlers = useMemo(
-    () =>
-      getSSEHandlers({
-        handleAccept,
-        handleReject,
-        getChannelRoomIdFromPath,
-        confirmModalStore,
-        matchingResponseStore,
-        waitingModalStore,
-        navNewMessageStore,
-        newAlarmStore,
-        newMessageStore,
-      }),
-    [
-      handleAccept,
-      handleReject,
-      getChannelRoomIdFromPath,
-      confirmModalStore,
-      matchingResponseStore,
-      waitingModalStore,
-      navNewMessageStore,
-      newAlarmStore,
-      newMessageStore,
-    ],
-  );
+  const handlers = getSSEHandlers({
+    handleAccept,
+    handleReject,
+    getChannelRoomIdFromPath,
+    confirmModalStore: useConfirmModalStore.getState(),
+    matchingResponseStore: useMatchingResponseStore.getState(),
+    waitingModalStore: useWaitingModalStore.getState(),
+    navNewMessageStore: useNavNewMessageStore.getState(),
+    newAlarmStore: useNewAlarmStore.getState(),
+    newMessageStore: useNewMessageStore.getState(),
+  });
 
   useSSE({
     url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/sse/subscribe`,
