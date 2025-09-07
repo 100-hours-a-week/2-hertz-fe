@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
-import { useShallow } from 'zustand/react/shallow';
+
 import ReceiverMessage from '@/components/chat/common/ReceiverMessage';
 import SenderMessage from '@/components/chat/common/SenderMessage';
 import ChatHeader from '@/components/layout/ChatHeader';
@@ -91,24 +91,24 @@ const MessageItem = memo(function MessageItem({
   );
 });
 
-const MessageContainer = memo(
-  function MessageContainer({
-    messages,
-    partner,
-    effectiveRelationType,
-    handleReport,
-  }: {
-    messages: ChannelRoomDetailResponse['data']['messages']['list'];
-    partner: ChannelRoomDetailResponse['data'] | undefined;
-    effectiveRelationType: string | null;
-    handleReport: (params: {
-      messageId: number;
-      messageContent: string;
-      reportedUserId: number;
-    }) => void;
-  }) {
-    const messagesWithDateInfo = useMemo(() => {
-      return messages.map((msg, index) => {
+const MessageContainer = memo(function MessageContainer({
+  messages,
+  partner,
+  effectiveRelationType,
+  handleReport,
+}: {
+  messages: ChannelRoomDetailResponse['data']['messages']['list'];
+  partner: ChannelRoomDetailResponse['data'] | undefined;
+  effectiveRelationType: string | null;
+  handleReport: (params: {
+    messageId: number;
+    messageContent: string;
+    reportedUserId: number;
+  }) => void;
+}) {
+  return (
+    <>
+      {messages.map((msg, index) => {
         let isNewDate = false;
         let currentDate = '';
 
@@ -125,57 +125,24 @@ const MessageContainer = memo(
           }
         }
 
-        return {
-          ...msg,
-          isNewDate,
-          currentDate,
-          messageKey: msg.messageId || `temp-${index}`,
-        };
-      });
-    }, [messages]);
+        const messageKey = msg.messageId || `temp-${index}`;
 
-    return (
-      <>
-        {messagesWithDateInfo.map((msgInfo) => (
-          <MessageItem
-            key={msgInfo.messageKey}
-            msg={msgInfo}
-            partner={partner}
-            effectiveRelationType={effectiveRelationType}
-            isNewDate={msgInfo.isNewDate}
-            currentDate={msgInfo.currentDate}
-            handleReport={handleReport}
-          />
-        ))}
-      </>
-    );
-  },
-  (prevProps, nextProps) => {
-    const prevLength = prevProps.messages.length;
-    const nextLength = nextProps.messages.length;
-
-    if (prevLength !== nextLength) return false;
-    if (prevProps.effectiveRelationType !== nextProps.effectiveRelationType) return false;
-    if (prevProps.partner?.partnerId !== nextProps.partner?.partnerId) return false;
-
-    // 마지막 메시지와 처음 몇 개 메시지만 비교하여 성능 최적화
-    if (prevLength > 0) {
-      const lastPrev = prevProps.messages[prevLength - 1];
-      const lastNext = nextProps.messages[nextLength - 1];
-      if (lastPrev?.messageId !== lastNext?.messageId) return false;
-
-      // 처음 3개 메시지도 확인 (날짜 변경 감지용)
-      const checkCount = Math.min(3, prevLength);
-      for (let i = 0; i < checkCount; i++) {
-        if (prevProps.messages[i]?.messageId !== nextProps.messages[i]?.messageId) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  },
-);
+        return (
+          <div key={messageKey}>
+            <MessageItem
+              msg={msg}
+              partner={partner}
+              effectiveRelationType={effectiveRelationType}
+              isNewDate={isNewDate}
+              currentDate={currentDate}
+              handleReport={handleReport}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+});
 
 export default function ChatsIndividualPage() {
   const { channelRoomId } = useParams();
@@ -193,55 +160,37 @@ export default function ChatsIndividualPage() {
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page')) || 0;
 
-  const queryKeyBase = useMemo(
-    () => ['channelRoom', parsedChannelRoomId, initialPage],
-    [parsedChannelRoomId, initialPage],
-  );
+  const mountTimestamp = useMemo(() => Date.now(), []);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
   const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
 
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery({
-    refetchOnMount: 'always',
-    queryKey: queryKeyBase,
-    queryFn: async ({ pageParam = 0 }) => {
-      const page = pageParam as number;
-      const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
-      if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
-        throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
-      if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
-      return response;
-    },
-    select: (data) => {
-      return {
-        ...data,
-        pages: data.pages.map((page) => ({
-          ...page,
-          data: {
-            ...page.data,
-            messages: {
-              ...page.data.messages,
-              list: page.data.messages.list,
-            },
-          },
-        })),
-      };
-    },
-    getNextPageParam: (lastPage) => {
-      const pagination = lastPage.data.messages.pageable;
-      return pagination.isLast ? undefined : pagination.pageNumber + 1;
-    },
-    initialPageParam: 0,
-    enabled: isChannelRoomIdValid,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    retry: false,
-    maxPages: 20,
-  });
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage } =
+    useInfiniteQuery<ChannelRoomDetailResponse>({
+      refetchOnMount: 'always',
+      queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
+      queryFn: async ({ pageParam = 0 }) => {
+        const page = pageParam as number;
+        const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
+        if (response.code === 'ALREADY_EXITED_CHANNEL_ROOM')
+          throw new Error('ALREADY_EXITED_CHANNEL_ROOM');
+        if (response.code === 'USER_DEACTIVATED') throw new Error('USER_DEACTIVATED');
+        return response;
+      },
+      getNextPageParam: (lastPage) => {
+        const pagination = lastPage.data.messages.pageable;
+        return pagination.isLast ? undefined : pagination.pageNumber + 1;
+      },
+      initialPageParam: 0,
+      enabled: isChannelRoomIdValid,
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: false,
+      retry: false,
+    });
 
   const hasInitializedRef = useRef<{ [page: number]: boolean }>({});
 
@@ -249,38 +198,29 @@ export default function ChatsIndividualPage() {
     const initMessages = async () => {
       if (!data || hasInitializedRef.current[initialPage]) return;
       hasInitializedRef.current[initialPage] = true;
+      let currentData = data;
+      let fetchCount = 0;
 
-      const allMessages = data.pages.reduce(
-        (acc, page) => {
-          acc.push(...page.data.messages.list);
-          return acc;
-        },
-        [] as (typeof data.pages)[0]['data']['messages']['list'],
-      );
+      while (
+        currentData.pages.length - 1 < initialPage &&
+        !currentData.pages.at(-1)?.data.messages.pageable.isLast &&
+        fetchCount < 10
+      ) {
+        const next = await fetchNextPage();
+        if (!next.data) break;
+        currentData = next.data;
+        fetchCount++;
+      }
+
+      const allMessages = [];
+      for (const page of currentData.pages) {
+        allMessages.push(...page.data.messages.list);
+      }
       setMessages(allMessages);
 
       requestAnimationFrame(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'auto' });
       });
-
-      if (
-        data.pages.length - 1 < initialPage &&
-        !data.pages.at(-1)?.data.messages.pageable.isLast
-      ) {
-        setTimeout(() => {
-          let remainingPages = initialPage - (data.pages.length - 1);
-          const loadNextPage = async () => {
-            if (remainingPages > 0) {
-              await fetchNextPage();
-              remainingPages--;
-              if (remainingPages > 0) {
-                setTimeout(loadNextPage, 100);
-              }
-            }
-          };
-          loadNextPage();
-        }, 0);
-      }
     };
 
     initMessages();
@@ -305,30 +245,32 @@ export default function ChatsIndividualPage() {
 
           setMessages((prev) => {
             if (messageId) {
-              const recentMessages = prev.slice(-10);
-              if (recentMessages.some((msg) => msg.messageId === messageId)) {
-                return prev;
+              for (let i = prev.length - 1; i >= Math.max(0, prev.length - 10); i--) {
+                if (prev[i].messageId === messageId) return prev;
               }
             } else {
               const messageTime = new Date(cleanedSendAt).getTime();
-              const recentMessages = prev.slice(-5);
-              const isDuplicate = recentMessages.some(
-                (msg) =>
+              for (let i = prev.length - 1; i >= Math.max(0, prev.length - 5); i--) {
+                const msg = prev[i];
+                if (
                   msg.messageSenderId === senderId &&
                   msg.messageContents === message &&
-                  Math.abs(new Date(msg.messageSendAt).getTime() - messageTime) < 1000,
-              );
-              if (isDuplicate) return prev;
+                  Math.abs(new Date(msg.messageSendAt).getTime() - messageTime) < 1000
+                ) {
+                  return prev;
+                }
+              }
             }
 
-            const newMessage = {
-              messageId,
-              messageSenderId: senderId,
-              messageContents: message,
-              messageSendAt: cleanedSendAt,
-            };
-
-            return [...prev, newMessage];
+            return [
+              ...prev,
+              {
+                messageId,
+                messageSenderId: senderId,
+                messageContents: message,
+                messageSendAt: cleanedSendAt,
+              },
+            ];
           });
           break;
         }
@@ -336,28 +278,13 @@ export default function ChatsIndividualPage() {
           const { channelRoomId, relationType } = data.data;
 
           if (channelRoomId === parsedChannelRoomId) {
-            setRelationType(channelRoomId, relationType);
+            useChannelRoomStore.getState().setRelationType(channelRoomId, relationType);
 
-            queryClient.setQueriesData(
-              {
-                predicate: (query) => {
-                  return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
-                },
+            queryClient.invalidateQueries({
+              predicate: (query) => {
+                return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
               },
-              (oldData: any) => {
-                if (!oldData) return oldData;
-                return {
-                  ...oldData,
-                  pages: oldData.pages.map((page: any) => ({
-                    ...page,
-                    data: {
-                      ...page.data,
-                      relationType,
-                    },
-                  })),
-                };
-              },
-            );
+            });
 
             if (relationType === 'MATCHING') {
               toast.success('🎉 매칭이 완료됐어요!', { id: 'socket-matching-success' });
@@ -373,15 +300,12 @@ export default function ChatsIndividualPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const prevMessagesLengthRef = useRef(0);
   useEffect(() => {
-    if (messages.length > prevMessagesLengthRef.current && messages.length > 0) {
+    if (messages.length > 0) {
       const timeout = setTimeout(() => scrollToBottom(), 0);
-      prevMessagesLengthRef.current = messages.length;
       return () => clearTimeout(timeout);
     }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages.length, scrollToBottom]);
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     if (isError && error instanceof Error) {
@@ -427,9 +351,9 @@ export default function ChatsIndividualPage() {
 
   useEffect(() => {
     if (partner?.relationType) {
-      setRelationType(parsedChannelRoomId, partner.relationType);
+      useChannelRoomStore.getState().setRelationType(parsedChannelRoomId, partner.relationType);
     }
-  }, [partner?.relationType, parsedChannelRoomId, setRelationType]);
+  }, [partner?.relationType, parsedChannelRoomId]);
 
   useEffect(() => {
     if (relationTypeFromStore === 'MATCHING' && partner?.relationType !== 'MATCHING') {
@@ -437,8 +361,6 @@ export default function ChatsIndividualPage() {
         predicate: (query) => {
           return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === parsedChannelRoomId;
         },
-        exact: false,
-        refetchType: 'none',
       });
     }
   }, [relationTypeFromStore, partner?.relationType, parsedChannelRoomId, queryClient]);
@@ -452,6 +374,10 @@ export default function ChatsIndividualPage() {
       });
     }
   }, [inView, hasNextPage, fetchNextPage]);
+
+  const shouldShowModal = useWaitingModalStore((state) => state.shouldShowModal);
+  const waitingModalChannelId = useWaitingModalStore((state) => state.channelRoomId);
+  const openModal = useWaitingModalStore((state) => state.openModal);
 
   useEffect(() => {
     if (
