@@ -137,29 +137,43 @@ const MessageContainer = memo(
     return (
       <>
         {messagesWithDateInfo.map((msgInfo) => (
-          <div key={msgInfo.messageKey}>
-            <MessageItem
-              msg={msgInfo}
-              partner={partner}
-              effectiveRelationType={effectiveRelationType}
-              isNewDate={msgInfo.isNewDate}
-              currentDate={msgInfo.currentDate}
-              handleReport={handleReport}
-            />
-          </div>
+          <MessageItem
+            key={msgInfo.messageKey}
+            msg={msgInfo}
+            partner={partner}
+            effectiveRelationType={effectiveRelationType}
+            isNewDate={msgInfo.isNewDate}
+            currentDate={msgInfo.currentDate}
+            handleReport={handleReport}
+          />
         ))}
       </>
     );
   },
   (prevProps, nextProps) => {
-    // 메시지 배열 길이와 마지막 메시지만 비교하여 불필요한 리렌더링 방지
-    return (
-      prevProps.messages.length === nextProps.messages.length &&
-      prevProps.messages[prevProps.messages.length - 1]?.messageId ===
-        nextProps.messages[nextProps.messages.length - 1]?.messageId &&
-      prevProps.effectiveRelationType === nextProps.effectiveRelationType &&
-      prevProps.partner?.partnerId === nextProps.partner?.partnerId
-    );
+    const prevLength = prevProps.messages.length;
+    const nextLength = nextProps.messages.length;
+
+    if (prevLength !== nextLength) return false;
+    if (prevProps.effectiveRelationType !== nextProps.effectiveRelationType) return false;
+    if (prevProps.partner?.partnerId !== nextProps.partner?.partnerId) return false;
+
+    // 마지막 메시지와 처음 몇 개 메시지만 비교하여 성능 최적화
+    if (prevLength > 0) {
+      const lastPrev = prevProps.messages[prevLength - 1];
+      const lastNext = nextProps.messages[nextLength - 1];
+      if (lastPrev?.messageId !== lastNext?.messageId) return false;
+
+      // 처음 3개 메시지도 확인 (날짜 변경 감지용)
+      const checkCount = Math.min(3, prevLength);
+      for (let i = 0; i < checkCount; i++) {
+        if (prevProps.messages[i]?.messageId !== nextProps.messages[i]?.messageId) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   },
 );
 
@@ -179,29 +193,19 @@ export default function ChatsIndividualPage() {
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page')) || 0;
 
-  const mountTimestamp = useMemo(() => Date.now(), []);
+  const queryKeyBase = useMemo(
+    () => ['channelRoom', parsedChannelRoomId, initialPage],
+    [parsedChannelRoomId, initialPage],
+  );
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { shouldShowModal, waitingModalChannelId, openModal } = useWaitingModalStore(
-    useShallow((state) => ({
-      shouldShowModal: state.shouldShowModal,
-      waitingModalChannelId: state.channelRoomId,
-      openModal: state.openModal,
-    })),
-  );
-  const isWaitingModalVisible = shouldShowModal;
-  const { isMatchingResponseModalVisible } = useMatchingResponseStore(
-    useShallow((state) => ({
-      isMatchingResponseModalVisible: state.isModalOpen,
-    })),
-  );
-
-  const setRelationType = useChannelRoomStore((state) => state.setRelationType);
+  const isWaitingModalVisible = useWaitingModalStore((state) => state.shouldShowModal);
+  const isMatchingResponseModalVisible = useMatchingResponseStore((state) => state.isModalOpen);
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage } = useInfiniteQuery({
     refetchOnMount: 'always',
-    queryKey: ['channelRoom', parsedChannelRoomId, initialPage, mountTimestamp],
+    queryKey: queryKeyBase,
     queryFn: async ({ pageParam = 0 }) => {
       const page = pageParam as number;
       const response = await getChannelRoomDetail(parsedChannelRoomId, page, 20);
@@ -231,12 +235,12 @@ export default function ChatsIndividualPage() {
     },
     initialPageParam: 0,
     enabled: isChannelRoomIdValid,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: false,
-    maxPages: 50,
+    maxPages: 20,
   });
 
   const hasInitializedRef = useRef<{ [page: number]: boolean }>({});
@@ -245,33 +249,38 @@ export default function ChatsIndividualPage() {
     const initMessages = async () => {
       if (!data || hasInitializedRef.current[initialPage]) return;
       hasInitializedRef.current[initialPage] = true;
-      let currentData = data;
-      let fetchCount = 0;
 
-      while (
-        currentData.pages.length - 1 < initialPage &&
-        !currentData.pages.at(-1)?.data.messages.pageable.isLast &&
-        fetchCount < 10
-      ) {
-        const next = await fetchNextPage();
-        if (!next.data) break;
-        currentData = next.data;
-        fetchCount++;
-      }
-
-      const allMessages = currentData.pages.reduce(
+      const allMessages = data.pages.reduce(
         (acc, page) => {
           acc.push(...page.data.messages.list);
           return acc;
         },
-        [] as (typeof currentData.pages)[0]['data']['messages']['list'],
+        [] as (typeof data.pages)[0]['data']['messages']['list'],
       );
-
       setMessages(allMessages);
 
       requestAnimationFrame(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'auto' });
       });
+
+      if (
+        data.pages.length - 1 < initialPage &&
+        !data.pages.at(-1)?.data.messages.pageable.isLast
+      ) {
+        setTimeout(() => {
+          let remainingPages = initialPage - (data.pages.length - 1);
+          const loadNextPage = async () => {
+            if (remainingPages > 0) {
+              await fetchNextPage();
+              remainingPages--;
+              if (remainingPages > 0) {
+                setTimeout(loadNextPage, 100);
+              }
+            }
+          };
+          loadNextPage();
+        }, 0);
+      }
     };
 
     initMessages();
@@ -329,11 +338,26 @@ export default function ChatsIndividualPage() {
           if (channelRoomId === parsedChannelRoomId) {
             setRelationType(channelRoomId, relationType);
 
-            queryClient.invalidateQueries({
-              predicate: (query) => {
-                return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+            queryClient.setQueriesData(
+              {
+                predicate: (query) => {
+                  return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === channelRoomId;
+                },
               },
-            });
+              (oldData: any) => {
+                if (!oldData) return oldData;
+                return {
+                  ...oldData,
+                  pages: oldData.pages.map((page: any) => ({
+                    ...page,
+                    data: {
+                      ...page.data,
+                      relationType,
+                    },
+                  })),
+                };
+              },
+            );
 
             if (relationType === 'MATCHING') {
               toast.success('🎉 매칭이 완료됐어요!', { id: 'socket-matching-success' });
@@ -349,12 +373,15 @@ export default function ChatsIndividualPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  const prevMessagesLengthRef = useRef(0);
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > prevMessagesLengthRef.current && messages.length > 0) {
       const timeout = setTimeout(() => scrollToBottom(), 0);
+      prevMessagesLengthRef.current = messages.length;
       return () => clearTimeout(timeout);
     }
-  }, [messages, scrollToBottom]);
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages.length, scrollToBottom]);
 
   useEffect(() => {
     if (isError && error instanceof Error) {
@@ -410,6 +437,8 @@ export default function ChatsIndividualPage() {
         predicate: (query) => {
           return query.queryKey[0] === 'channelRoom' && query.queryKey[1] === parsedChannelRoomId;
         },
+        exact: false,
+        refetchType: 'none',
       });
     }
   }, [relationTypeFromStore, partner?.relationType, parsedChannelRoomId, queryClient]);
