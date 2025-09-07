@@ -28,17 +28,23 @@ export default function ChannelsIndividualPage() {
       gcTime: 1000 * 60 * 5,
     });
 
-  // 채팅방 hover/focus 시 prefetch
+  // 채팅방 hover/focus 시 prefetch 최적화
   const prefetchChatRoom = useCallback(
     (channelRoomId: number, lastPageNumber: number) => {
+      // 이미 캐시에 있는지 확인하여 불필요한 prefetch 방지
+      const existingData = queryClient.getQueryData(['channelRoom', channelRoomId, lastPageNumber]);
+      if (existingData) return;
+
       queryClient.prefetchInfiniteQuery({
-        queryKey: ['channelRoom', channelRoomId, lastPageNumber, Date.now()],
+        queryKey: ['channelRoom', channelRoomId, lastPageNumber],
         queryFn: async ({ pageParam = 0 }) => {
           const page = pageParam as number;
           return await getChannelRoomDetail(channelRoomId, page, 20);
         },
         initialPageParam: 0,
+        getNextPageParam: () => undefined, // 첫 페이지만 prefetch하므로 다음 페이지 없음
         staleTime: 1000 * 60 * 2,
+        pages: 1, // 첫 페이지만 prefetch
       });
     },
     [queryClient],
