@@ -1,12 +1,13 @@
-import ServiceWorkerRegister from '@components/ServiceWorkerRegister';
 import '@app/globals.css';
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { Toaster } from 'react-hot-toast';
-import ClientLayoutContent from '@/components/layout/ClientLayoutContent';
+import OptimizedClientLayout from '@/components/layout/OptimizedClientLayout';
 import Providers from './providers';
-import { AuthGuard } from '@/components/layout/AuthGuard';
 import Script from 'next/script';
+import dynamic from 'next/dynamic';
+
+const ServiceWorkerRegister = dynamic(() => import('@components/ServiceWorkerRegister'));
 
 const pretendard = localFont({
   src: '../fonts/PretendardVariable.woff2',
@@ -53,13 +54,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </noscript>
         <Providers>
-          <ClientLayoutContent>
-            <AuthGuard>
-              <div className="mx-auto flex w-full max-w-md flex-1 flex-col bg-white">
-                <div className="flex-1 overflow-y-auto">{children}</div>
-              </div>
-            </AuthGuard>
-          </ClientLayoutContent>
+          <OptimizedClientLayout>
+            <div className="mx-auto flex w-full max-w-md flex-1 flex-col bg-white">
+              <div className="flex-1 overflow-y-auto">{children}</div>
+            </div>
+          </OptimizedClientLayout>
         </Providers>
         <Toaster />
         <ServiceWorkerRegister />
