@@ -41,10 +41,12 @@ export default function BannerSection() {
               <Image
                 src={src}
                 alt={`배너 ${index + 1}`}
-                width={600}
-                height={600}
+                width={400}
+                height={267}
                 className="h-full w-full object-cover"
                 priority={index === 0}
+                loading={index === 0 ? 'eager' : 'lazy'}
+                sizes="(max-width: 768px) 100vw, 400px"
               />
             </div>
           ))}

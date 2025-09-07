@@ -27,7 +27,7 @@ export const useWaitingModalStore = create<WaitingModalState>()(
       partnerNickname: '',
       channelRoomId: null,
 
-      openModal: (nickname, channelRoomId) =>
+      openModal: (nickname: string, channelRoomId: number) =>
         set({
           isOpen: true,
           shouldShowModal: true,
@@ -37,12 +37,12 @@ export const useWaitingModalStore = create<WaitingModalState>()(
         }),
 
       closeModal: () =>
-        set((state) => ({
+        set((state: WaitingModalState) => ({
           ...state,
           isOpen: false,
         })),
 
-      temporarilyHideModal: (channelRoomId) => {
+      temporarilyHideModal: (channelRoomId: number) => {
         const state = get();
         if (state.isOpen) {
           set({
@@ -57,7 +57,7 @@ export const useWaitingModalStore = create<WaitingModalState>()(
         }
       },
 
-      restoreModal: (channelRoomId) => {
+      restoreModal: (channelRoomId: number) => {
         const state = get();
         if (
           state.isTemporarilyHidden &&

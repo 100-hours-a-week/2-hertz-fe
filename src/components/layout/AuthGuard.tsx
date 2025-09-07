@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { isAuthenticated } from '@/utils/auth';
 
 const PUBLIC_PATH_PREFIXES = ['/login', '/onboarding', '/not-found'];
+const SSR_HANDLED_PATHS: string[] = [];
 
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
@@ -13,8 +14,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const isPublic = PUBLIC_PATH_PREFIXES.some((publicPath) => pathname.startsWith(publicPath));
+    const isSSRHandled = SSR_HANDLED_PATHS.some((ssrPath) => pathname.startsWith(ssrPath));
 
-    if (isPublic) {
+    if (isPublic || isSSRHandled) {
       setCanRender(true);
       return;
     }
@@ -38,7 +40,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     setCanRender(true);
   }, [pathname, router]);
-        
+
   if (!canRender) return null;
 
   return <>{children}</>;
