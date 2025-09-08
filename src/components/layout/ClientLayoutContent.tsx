@@ -1,10 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
-import Header from '@/components/layout/Header';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import toast from 'react-hot-toast';
+import dynamic from 'next/dynamic';
 import { useConfirmModalStore } from '@/stores/modal/useConfirmModalStore';
 import { useMatchingResponseStore } from '@/stores/modal/useMatchingResponseStore';
 import { useWaitingModalStore } from '@/stores/modal/useWaitingModalStore';
@@ -12,15 +10,47 @@ import { useNavNewMessageStore } from '@/stores/chat/useNavNewMessageStore';
 import { useNewAlarmStore } from '@/stores/chat/useNewAlarmStore';
 import { useNewMessageStore } from '@/stores/modal/useNewMessageStore';
 import { useShallow } from 'zustand/react/shallow';
-import { ConfirmModal } from '../common/ConfirmModal';
-import WaitingModal from '../common/WaitingModal';
-import NewMessageToast from '../common/NewMessageToast';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { postMatchingAccept, postMatchingReject } from '@/lib/api/matching';
 import { useSSEStore } from '@/stores/useSSEStore';
 import { useSSE } from '@/hooks/useSSE';
 import { getSSEHandlers } from '@/constants/sseHandlers';
+const DynamicBottomNavigationBar = dynamic(
+  () => import('@/components/layout/BottomNavigationBar'),
+  {
+    ssr: false,
+  },
+);
+
+const DynamicHeader = dynamic(() => import('@/components/layout/Header'), {
+  ssr: false,
+});
+
+const DynamicPerformanceMonitor = dynamic(
+  () => import('@/components/performance/PerformanceMonitor'),
+  {
+    ssr: false,
+  },
+);
+
+const DynamicConfirmModal = dynamic(
+  () => import('../common/ConfirmModal').then((mod) => ({ default: mod.ConfirmModal })),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+);
+
+const DynamicWaitingModal = dynamic(() => import('../common/WaitingModal'), {
+  ssr: false,
+  loading: () => null,
+});
+
+const DynamicNewMessageToast = dynamic(() => import('../common/NewMessageToast'), {
+  ssr: false,
+  loading: () => null,
+});
 
 const EXCLUDE_PATHS = ['/login', '/onboarding', '/not-found'];
 
@@ -30,6 +60,10 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
   const [isHiddenUI, setIsHiddenUI] = useState(false);
   const setReconnect = useSSEStore((state) => state.setReconnect);
   const prevPathnameRef = useRef(pathname);
+
+  const isConfirmModalOpen = useConfirmModalStore((state) => state.isOpen);
+  const isWaitingModalOpen = useWaitingModalStore((state) => state.isOpen);
+  const hasNewMessage = useNewMessageStore((state) => state.toast !== null);
 
   const { temporarilyHideModal: hideConfirmModal, restoreModal: restoreConfirmModal } =
     useConfirmModalStore(
@@ -65,33 +99,27 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
     const currentChatMatch = currentPath?.match(chatRoomPattern);
 
     if (prevChatMatch && !currentChatMatch) {
-      // 채팅방에서 다른 페이지로 이동
       const channelRoomId = Number(prevChatMatch[1]);
 
-      // ConfirmModal 상태 확인 및 임시 숨김
       const confirmModalState = useConfirmModalStore.getState();
 
       if (confirmModalState.isOpen) {
         hideConfirmModal(channelRoomId);
       }
 
-      // WaitingModal 상태 확인 및 임시 숨김
       const waitingModalState = useWaitingModalStore.getState();
 
       if (waitingModalState.isOpen) {
         hideWaitingModal(channelRoomId);
       }
-      // MatchingResponseModal 상태 확인 및 임시 숨김
       const currentModalState = useMatchingResponseStore.getState();
 
       if (currentModalState.isModalOpen) {
         hideMatchingModal(channelRoomId);
       }
     } else if (!prevChatMatch && currentChatMatch) {
-      // 다른 페이지에서 채팅방으로 이동
       const channelRoomId = Number(currentChatMatch[1]);
 
-      // ConfirmModal 복원
       const confirmModalState = useConfirmModalStore.getState();
 
       if (
@@ -101,7 +129,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         restoreConfirmModal(channelRoomId);
       }
 
-      // WaitingModal 복원
       const waitingModalState = useWaitingModalStore.getState();
 
       if (
@@ -111,7 +138,6 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         restoreWaitingModal(channelRoomId);
       }
 
-      // MatchingResponseModal 복원
       const currentModalState = useMatchingResponseStore.getState();
 
       if (
@@ -139,6 +165,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
   const handleAccept = useCallback(async (channelRoomId: number) => {
     await postMatchingAccept({ channelRoomId });
+    const { toast } = await import('react-hot-toast');
     toast.success(`매칭이 완료됐어요!`, {
       icon: '🎉',
       id: 'matching-success',
@@ -147,6 +174,7 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
   const handleReject = useCallback(async (channelRoomId: number) => {
     await postMatchingReject({ channelRoomId });
+    const { toast } = await import('react-hot-toast');
     toast('매칭을 거절했어요', { icon: '👋', id: 'matching-reject' });
   }, []);
 
@@ -198,12 +226,15 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
   return (
     <QueryClientProvider client={queryClient}>
+      <DynamicPerformanceMonitor pageName="ClientLayoutContent (Aggressive Dynamic Import)" />
       <div
         className={`relative flex min-h-[100dvh] w-full max-w-[430px] flex-col ${
           isHiddenUI ? '' : 'bg-white'
         }`}
       >
-        {!isHiddenUI && <Header title="" showBackButton={false} showNotificationButton={false} />}
+        {!isHiddenUI && (
+          <DynamicHeader title="" showBackButton={false} showNotificationButton={false} />
+        )}
         <div
           className={`flex-grow overflow-y-auto shadow-lg ${
             isHiddenUI ? '' : 'pt-[56px] pb-[56px]'
@@ -211,10 +242,10 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
         >
           {children}
         </div>
-        {!isHiddenUI && <BottomNavigationBar />}
-        <WaitingModal />
-        <ConfirmModal />
-        <NewMessageToast />
+        {!isHiddenUI && <DynamicBottomNavigationBar />}
+        {isWaitingModalOpen && <DynamicWaitingModal />}
+        {isConfirmModalOpen && <DynamicConfirmModal />}
+        {hasNewMessage && <DynamicNewMessageToast />}
       </div>
     </QueryClientProvider>
   );

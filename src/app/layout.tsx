@@ -1,13 +1,14 @@
 import '@app/globals.css';
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
-import { Toaster } from 'react-hot-toast';
 import OptimizedClientLayout from '@/components/layout/OptimizedClientLayout';
 import Providers from './providers';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
 
 const ServiceWorkerRegister = dynamic(() => import('@components/ServiceWorkerRegister'));
+
+const DynamicToaster = dynamic(() => import('@/components/common/DynamicToaster'));
 
 const pretendard = localFont({
   src: '../fonts/PretendardVariable.woff2',
@@ -60,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </OptimizedClientLayout>
         </Providers>
-        <Toaster />
+        <DynamicToaster />
         <ServiceWorkerRegister />
       </body>
     </html>
