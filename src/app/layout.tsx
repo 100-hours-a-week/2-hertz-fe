@@ -1,19 +1,25 @@
 import '@app/globals.css';
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
-import { Toaster } from 'react-hot-toast';
 import OptimizedClientLayout from '@/components/layout/OptimizedClientLayout';
 import Providers from './providers';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
 
-const ServiceWorkerRegister = dynamic(() => import('@components/ServiceWorkerRegister'));
+const ServiceWorkerRegister = dynamic(() => import('@components/ServiceWorkerRegister'), {
+  loading: () => null,
+});
+
+const DynamicToaster = dynamic(() => import('@/components/common/DynamicToaster'), {
+  loading: () => null,
+});
 
 const pretendard = localFont({
   src: '../fonts/PretendardVariable.woff2',
   display: 'swap',
   weight: '45 920',
   variable: '--font-pretendard',
+  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -32,7 +38,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <head>
-        <Script id="gtm-head" strategy="beforeInteractive">
+        <link
+          rel="preload"
+          href="/fonts/PretendardVariable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin=""
+        />
+        <link rel="preload" href="/images/bg.avif" as="image" />
+        <link rel="preload" href="/icons/logo-blue.png" as="image" />
+        <link rel="preload" href="/images/tuny1.avif" as="image" />
+        <link rel="preload" href="/images/tuny2.avif" as="image" />
+        <link rel="dns-prefetch" href="//www.googletagmanager.com" />
+        <link rel="preconnect" href="//www.googletagmanager.com" crossOrigin="" />
+        <Script id="gtm-head" strategy="afterInteractive">
           {`
             (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
               new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -43,7 +62,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Script>
       </head>
       <body
-        className={`${pretendard.variable} font-pretendard flex min-h-screen touch-manipulation flex-col items-center overscroll-none bg-[url('/images/bg.png')] bg-cover bg-center bg-no-repeat`}
+        className={`${pretendard.variable} font-pretendard flex min-h-screen touch-manipulation flex-col items-center overscroll-none`}
+        style={{
+          backgroundImage: `url('/images/bg.avif'), url('/images/bg.webp'), url('/images/bg.png')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
       >
         <noscript>
           <iframe
@@ -60,7 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </OptimizedClientLayout>
         </Providers>
-        <Toaster />
+        <DynamicToaster />
         <ServiceWorkerRegister />
       </body>
     </html>

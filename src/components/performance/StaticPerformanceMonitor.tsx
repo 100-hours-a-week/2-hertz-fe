@@ -4,25 +4,17 @@ import { useEffect } from 'react';
 
 export default function StaticPerformanceMonitor({ pageName }: { pageName: string }) {
   useEffect(() => {
-    const measureBasicPerformance = () => {
-      const now = performance.now();
-      console.log(`📊 ${pageName} - Initial render: ${now.toFixed(2)}ms`);
+    if (process.env.NODE_ENV !== 'development') return;
 
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (entry.name === 'first-contentful-paint') {
-            console.log(`🎨 ${pageName} - FCP: ${entry.startTime.toFixed(2)}ms`);
-            observer.disconnect();
-          }
-        }
-      });
+    const idleCallback = requestIdleCallback(
+      () => {
+        const now = performance.now();
+        console.log(`📊 ${pageName} - Initial render: ${now.toFixed(2)}ms`);
+      },
+      { timeout: 2000 },
+    );
 
-      try {
-        observer.observe({ entryTypes: ['paint'] });
-      } catch {}
-    };
-
-    measureBasicPerformance();
+    return () => cancelIdleCallback(idleCallback);
   }, [pageName]);
 
   return null;
