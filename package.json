@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "optimize-images": "node scripts/optimize-images.js",
+    "prebuild": "pnpm run optimize-images"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -63,6 +65,7 @@
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
+    "sharp": "^0.34.3",
     "tailwindcss": "4",
     "tw-animate-css": "^1.2.8",
     "typescript": "5.4.4"

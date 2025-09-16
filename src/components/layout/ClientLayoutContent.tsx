@@ -226,7 +226,9 @@ export default function ClientLayoutContent({ children }: { children: React.Reac
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DynamicPerformanceMonitor pageName="ClientLayoutContent (Aggressive Dynamic Import)" />
+      {process.env.NODE_ENV === 'development' && (
+        <DynamicPerformanceMonitor pageName="ClientLayoutContent (Aggressive Dynamic Import)" />
+      )}
       <div
         className={`relative flex min-h-[100dvh] w-full max-w-[430px] flex-col ${
           isHiddenUI ? '' : 'bg-white'
