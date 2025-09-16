@@ -7,12 +7,12 @@ import { FaCheck } from 'react-icons/fa';
 import { RegisterUserRequest } from '@/lib/api/onboarding';
 
 const PROFILE_IMAGES = [
-  '/images/cat-profile.png',
-  '/images/dog-profile.png',
-  '/images/duck-profile.png',
-  '/images/rabbit-profiile.png',
-  '/images/elephant-profile.png',
-  '/images/penguin-profile.png',
+  '/images/cat-profile.webp',
+  '/images/dog-profile.webp',
+  '/images/duck-profile.webp',
+  '/images/rabbit-profiile.webp',
+  '/images/elephant-profile.webp',
+  '/images/penguin-profile.webp',
 ];
 
 export default function ProfileImageSelector() {
@@ -35,7 +35,7 @@ export default function ProfileImageSelector() {
       <div className="mx-auto mt-6 grid w-[20rem] grid-cols-3 justify-center gap-5">
         {PROFILE_IMAGES.map((url) => {
           const isSelected = selectedUrl === url;
-          const fallback = '/images/default-profile.png';
+          const fallback = '/images/default-profile.webp';
           const finalUrl = errorFallback[url] ? fallback : url;
 
           return (
@@ -57,6 +57,10 @@ export default function ProfileImageSelector() {
                 className="h-full w-full object-cover"
                 onError={() => handleError(url)}
                 draggable={false}
+                loading="lazy"
+                sizes="(max-width: 768px) 100px, 100px"
+                placeholder="blur"
+                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyiwjA"
               />
 
               {isSelected && (
