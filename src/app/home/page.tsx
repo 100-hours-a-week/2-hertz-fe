@@ -10,24 +10,9 @@ const DynamicStaticPerformanceMonitor = dynamic(
   },
 );
 
-const BannerSection = dynamic(() => import('@/components/home/BannerSection'), {
-  ssr: false,
-  loading: () => (
-    <div className="mx-auto w-full max-w-md">
-      <div className="relative aspect-[3/2] animate-pulse rounded-lg bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
-      <div className="mt-4 flex justify-center space-x-2">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-2 w-2 animate-pulse rounded-full bg-gray-300" />
-        ))}
-      </div>
-    </div>
-  ),
-});
+import BannerSection from '@/components/home/BannerSection';
 
-const ClickWebPushBanner = dynamic(() => import('@/components/home/ClickWebPushBanner'), {
-  ssr: false,
-  loading: () => <div className="h-12 animate-pulse rounded bg-gray-100" />,
-});
+import ClickWebPushBanner from '@/components/home/ClickWebPushBanner';
 
 const MatchTypeSelector = dynamic(
   () =>
@@ -55,65 +40,29 @@ const MatchTypeSelector = dynamic(
 );
 
 export default function HomePage() {
-  const [shouldLoadBelowFold, setShouldLoadBelowFold] = useState(false);
   const [shouldLoadMatchTypeSelector, setShouldLoadMatchTypeSelector] = useState(false);
 
   useEffect(() => {
+    // MatchTypeSelector는 사용자 인터랙션 후 로딩
     const timer = setTimeout(() => {
-      setShouldLoadBelowFold(true);
-    }, 300);
-
-    const matchTypeSelectorTimer = setTimeout(() => {
       setShouldLoadMatchTypeSelector(true);
-    }, 500);
+    }, 50);
 
     return () => {
       clearTimeout(timer);
-      clearTimeout(matchTypeSelectorTimer);
     };
   }, []);
 
   return (
     <>
-      <DynamicStaticPerformanceMonitor pageName="/home (Dynamic Import)" />
+      {process.env.NODE_ENV === 'development' && (
+        <DynamicStaticPerformanceMonitor pageName="/home (Dynamic Import)" />
+      )}
 
       <main className="p-4">
-        <Suspense
-          fallback={
-            <div className="mt-4 flex items-center gap-2 rounded-md bg-gray-100 p-4 px-8 text-sm font-medium text-gray-400">
-              <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
-              <div className="h-4 w-48 animate-pulse rounded bg-gray-300" />
-            </div>
-          }
-        >
-          <ClickWebPushBanner />
-        </Suspense>
+        <ClickWebPushBanner />
 
-        {shouldLoadBelowFold ? (
-          <Suspense
-            fallback={
-              <div className="mx-auto mt-6 w-full max-w-md">
-                <div className="relative aspect-[3/2] animate-pulse rounded-lg bg-gray-200" />
-                <div className="mt-4 flex justify-center space-x-2">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-2 w-2 rounded-full bg-gray-300" />
-                  ))}
-                </div>
-              </div>
-            }
-          >
-            <BannerSection />
-          </Suspense>
-        ) : (
-          <div className="mx-auto mt-6 w-full max-w-md">
-            <div className="relative aspect-[3/2] animate-pulse rounded-lg bg-gray-200" />
-            <div className="mt-4 flex justify-center space-x-2">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-2 w-2 rounded-full bg-gray-300" />
-              ))}
-            </div>
-          </div>
-        )}
+        <BannerSection />
 
         {shouldLoadMatchTypeSelector ? (
           <Suspense
