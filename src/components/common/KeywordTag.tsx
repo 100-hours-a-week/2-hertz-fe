@@ -60,7 +60,7 @@ export default function KeywordTag({ keywords, variant = 'default' }: KeywordTag
         const label =
           ALL_KEYWORD_MAP[keywordWithPrefix as keyof typeof ALL_KEYWORD_MAP] || keywordWithPrefix;
 
-        const rawKeyword = keywordWithPrefix.split('_').slice(1).join('_');
+        const rawKeyword = keywordWithPrefix.split('_').slice(2).join('_');
         const isPreferredPeople = Object.keys(PreferredPeople).includes(rawKeyword);
         const displayLabel = isPreferredPeople ? `👩🏻‍❤️‍👨🏻 ${label}` : label;
 
