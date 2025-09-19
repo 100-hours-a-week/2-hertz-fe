@@ -1,0 +1,52 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`KeywordTag 스냅샷 PreferredPeople 키워드 스냅샷이 일치해야 한다 1`] = `
+<div
+  class="flex flex-wrap gap-2"
+>
+  <div
+    class="inline-block rounded-full border px-3 py-1 text-xs font-medium border-[var(--gray-200)] bg-white text-black"
+  >
+    # 
+    PREFERRED_PEOPLE_PREFERRED_PEOPLE_CUTE
+  </div>
+</div>
+`;
+
+exports[`KeywordTag 스냅샷 common variant 스냅샷이 일치해야 한다 1`] = `
+<div
+  class="flex flex-wrap gap-2"
+>
+  <div
+    class="inline-block rounded-full border px-3 py-1 text-xs font-medium border-[var(--blue)] bg-[var(--light-blue)] text-[var(--dark-blue)]"
+  >
+    # 
+    20대
+  </div>
+  <div
+    class="inline-block rounded-full border px-3 py-1 text-xs font-medium border-[var(--blue)] bg-[var(--light-blue)] text-[var(--dark-blue)]"
+  >
+    # 
+    GENDER_GENDER_MALE
+  </div>
+</div>
+`;
+
+exports[`KeywordTag 스냅샷 default variant 스냅샷이 일치해야 한다 1`] = `
+<div
+  class="flex flex-wrap gap-2"
+>
+  <div
+    class="inline-block rounded-full border px-3 py-1 text-xs font-medium border-[var(--gray-200)] bg-white text-black"
+  >
+    # 
+    20대
+  </div>
+  <div
+    class="inline-block rounded-full border px-3 py-1 text-xs font-medium border-[var(--gray-200)] bg-white text-black"
+  >
+    # 
+    GENDER_GENDER_MALE
+  </div>
+</div>
+`;
